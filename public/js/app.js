@@ -620,7 +620,11 @@
                 e.preventDefault();
 
                 const id = document.getElementById('form-event-id').value || 'evt_' + Date.now();
-                const title = document.getElementById('form-title').value;
+                const title = document.getElementById('form-title').value.trim();
+                if (!title) {
+                    window.ui.showAlert('Datos incompletos', 'Ingrese el nombre del evento.');
+                    return;
+                }
                 const type = document.getElementById('form-type').value;
                 const daysCount = parseInt(document.getElementById('form-days-count').value, 10);
                 const locationName = document.getElementById('form-location-name').value;
@@ -662,9 +666,12 @@
 
                 localStorage.setItem('catering_events_v2', JSON.stringify(window.state.events));
 
-                // Save to Firestore if available
+                let savedToFirestore = false;
                 try {
-                    if (eventsCollection) await setDoc(doc(eventsCollection, id), newEvent);
+                    if (eventsCollection) {
+                        await setDoc(doc(eventsCollection, id), newEvent);
+                        savedToFirestore = true;
+                    }
                 } catch (e) {
                     console.warn('Firestore write warning:', e);
                 }
@@ -672,7 +679,12 @@
                 window.ui.closeEventModal();
                 window.ui.renderPublicEvents();
                 if (window.state.isAdmin) window.ui.renderAdminList();
-                window.ui.showAlert('Éxito', 'El evento ha sido guardado correctamente.');
+                window.ui.showAlert(
+                    savedToFirestore ? 'Éxito' : 'Guardado local',
+                    savedToFirestore
+                        ? 'El evento ha sido guardado en Firebase.'
+                        : 'El evento se guardó en este dispositivo. Habilite el acceso anónimo de Firebase para sincronizarlo en la nube.'
+                );
             },
 
             deleteEvent: async (id) => {
