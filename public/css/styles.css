@@ -1,0 +1,17 @@
+        /* Custom Mobile Optimizations */
+        .carousel-slide {
+            transition: opacity 0.5s ease-in-out;
+        }
+        .touch-action-pan-y {
+            touch-action: pan-y;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }

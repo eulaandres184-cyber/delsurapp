@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Del Sur Eventos - Servicio de Catering</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/tailwind-config.js"></script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet CSS & JS for Interactive Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <script type="module" src="/js/app.js"></script>
+</head>
+<body class="h-full font-sans antialiased text-slate-800 bg-slate-100 flex flex-col min-h-screen">
+
+    <!-- Header / Navbar -->
+    <header class="bg-slate-900 text-white sticky top-0 z-40 shadow-md border-b border-slate-800">
+        <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+            <!-- Triple Tap Gesture Trigger strictly on Utensils Icon -->
+            <div class="flex items-center gap-2.5 select-none">
+                <div id="admin-access-trigger" role="button" tabindex="0" aria-label="Acceso administrador" title="Acceso Admin (3 toques en utensilios)" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-amber-400 shadow-inner cursor-pointer active:scale-90 transition-transform">
+                    <i class="fa-solid fa-utensils text-base pointer-events-none"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base tracking-wide leading-tight">Del Sur Eventos</h1>
+                    <p class="text-[10px] text-slate-400 font-medium">Catering & Gastronomía</p>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <nav class="flex items-center gap-1">
+                <button onclick="window.ui.showTab('events')" id="nav-events-btn" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-white border border-slate-700 transition-all">
+                    Eventos
+                </button>
+                <button id="nav-admin-btn" onclick="window.ui.showTab('admin')" class="hidden px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
+                    Admin <i class="fa-solid fa-lock-open ml-1 text-[10px] text-emerald-400"></i>
+                </button>
+                <button id="admin-logout-btn" onclick="window.app.logoutAdmin()" class="hidden text-xs text-rose-400 hover:text-rose-300 p-1.5 ml-1">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Carousel (Fixed 35vh Height for Mobile First) -->
+    <div id="carousel-container" class="relative w-full h-[35vh] max-h-[280px] bg-slate-900 overflow-hidden shadow-inner touch-action-pan-y">
+        <div id="carousel-slides" class="relative w-full h-full">
+            <!-- Slides generated dynamically -->
+        </div>
+
+        <!-- Carousel Gradient Overlay -->
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-black/30 pointer-events-none"></div>
+
+        <!-- Slide Info -->
+        <div class="absolute bottom-4 left-4 right-4 text-white z-10 pointer-events-none">
+            <span id="carousel-tag" class="text-[10px] font-bold uppercase tracking-wider bg-amber-500/90 text-slate-950 px-2 py-0.5 rounded-md mb-1 inline-block">Servicio Exclusivo</span>
+            <h2 id="carousel-title" class="text-base font-bold drop-shadow-md leading-snug">Menús Gourmet para Eventos Únicos</h2>
+        </div>
+
+        <!-- Indicators -->
+        <div id="carousel-dots" class="absolute bottom-2 right-4 z-20 flex gap-1.5">
+            <!-- Dots generated in JS -->
+        </div>
+    </div>
+
+    <main class="flex-1 max-w-md w-full mx-auto p-4 pb-12">
+
+        <!-- PUBLIC EVENTS VIEW -->
+        <section id="view-events" class="space-y-4">
+            <div class="flex items-center justify-between mb-1">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Próximos Eventos</h2>
+                    <p class="text-xs text-slate-500">Selecciona tu evento para consultar el menú</p>
+                </div>
+                <span id="events-count-badge" class="text-xs bg-slate-200 font-semibold px-2.5 py-1 rounded-full text-slate-700">0</span>
+            </div>
+
+            <!-- Events Grid -->
+            <div id="public-events-grid" class="grid gap-4">
+                <!-- Cards injected dynamically -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="public-empty-state" class="hidden text-center py-12 px-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400 mb-3">
+                    <i class="fa-solid fa-calendar-xmark text-xl"></i>
+                </div>
+                <h3 class="text-sm font-bold text-slate-800">No hay eventos disponibles</h3>
+                <p class="text-xs text-slate-500 mt-1">Actualmente no hay menús cargados para consultar.</p>
+            </div>
+        </section>
+
+        <!-- ADMIN PANEL VIEW -->
+        <section id="view-admin" class="hidden space-y-4">
+            <div class="bg-slate-900 text-white p-4 rounded-2xl shadow-md border border-slate-800 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Panel de Control</span>
+                        <h2 class="text-lg font-bold">Gestión de Eventos</h2>
+                    </div>
+                    <button onclick="window.ui.openEventModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95">
+                        <i class="fa-solid fa-plus"></i> Nuevo Evento
+                    </button>
+                </div>
+
+                <!-- Admin Search and Filters -->
+                <div class="grid grid-cols-1 gap-2 pt-2 border-t border-slate-800">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                        <input type="text" id="admin-search-input" oninput="window.app.handleAdminSearch(this.value)" placeholder="Buscar por nombre o lugar..." class="w-full bg-slate-800 border border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-amber-400">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="admin-filter-type" onchange="window.app.handleAdminFilterType(this.value)" class="bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-400">
+                            <option value="ALL">Todos los tipos</option>
+                            <option value="Corporativo">Corporativo</option>
+                            <option value="Boda">Boda</option>
+                            <option value="Cumpleaños">Cumpleaños</option>
+                            <option value="Retiro">Retiro</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+
+                        <select id="admin-sort-order" onchange="window.app.handleAdminSort(this.value)" class="bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-400">
+                            <option value="RECENT">Más recientes</option>
+                            <option value="OLDEST">Más antiguos</option>
+                            <option value="ALPHA_ASC">Nombre (A-Z)</option>
+                            <option value="ALPHA_DESC">Nombre (Z-A)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Event List -->
+            <div id="admin-events-list" class="space-y-3">
+                <!-- Admin items dynamically rendered -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL: ADMIN ACCESS KEY -->
+    <div id="modal-admin-auth" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl border border-slate-200 text-center space-y-4">
+            <div class="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto text-amber-400 text-xl shadow-md">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-slate-900 text-base">Acceso Administrador</h3>
+                <p class="text-xs text-slate-500 mt-1">Ingrese el código PIN para acceder al panel de gestión.</p>
+            </div>
+            <div>
+                <input type="password" id="admin-pin-input" placeholder="••••" maxlength="8" class="w-full text-center text-lg font-bold tracking-widest bg-slate-100 border border-slate-300 rounded-xl py-2 focus:outline-none focus:border-slate-800">
+            </div>
+            <div class="flex gap-2">
+                <button onclick="window.ui.closeAdminAuthModal()" class="w-1/2 py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200">Cancelar</button>
+                <button onclick="window.app.verifyAdminPin()" class="w-1/2 py-2 text-xs font-semibold text-white bg-slate-900 rounded-xl hover:bg-slate-800 shadow-sm">Ingresar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CREATE / EDIT EVENT -->
+    <div id="modal-event-form" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            <!-- Header -->
+            <div class="bg-slate-900 text-white p-4 flex items-center justify-between border-b border-slate-800">
+                <h3 id="event-form-title" class="font-bold text-sm">Nuevo Evento</h3>
+                <button onclick="window.ui.closeEventModal()" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Form Content -->
+            <form id="event-form" onsubmit="window.app.saveEvent(event)" class="p-4 overflow-y-auto custom-scrollbar space-y-4 text-xs">
+                <input type="hidden" id="form-event-id">
+
+                <!-- Title & Type -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="col-span-2">
+                        <label class="block font-semibold text-slate-700 mb-1">Nombre del Evento *</label>
+                        <input type="text" id="form-title" required placeholder="Ej. Rural, Boda González, Retiro" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 focus:outline-none focus:border-slate-800">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Tipo de Evento</label>
+                        <select id="form-type" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 focus:outline-none focus:border-slate-800">
+                            <option value="Corporativo">Corporativo</option>
+                            <option value="Boda">Boda</option>
+                            <option value="Cumpleaños">Cumpleaños</option>
+                            <option value="Retiro">Retiro</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Días de Duración</label>
+                        <select id="form-days-count" onchange="window.ui.updateDaysBuilder()" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 focus:outline-none focus:border-slate-800">
+                            <option value="1">1 Día</option>
+                            <option value="2">2 Días</option>
+                            <option value="3" selected>3 Días</option>
+                            <option value="4">4 Días</option>
+                            <option value="5">5 Días</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Location Selector -->
+                <div class="space-y-1.5 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                    <label class="block font-semibold text-slate-800">Ubicación del Evento</label>
+                    <input type="text" id="form-location-name" placeholder="Nombre del lugar (Ej. Sociedad Rural de Palermo)" class="w-full bg-white border border-slate-300 rounded-xl p-2 focus:outline-none focus:border-slate-800 mb-2">
+                    <input type="hidden" id="form-location-url">
+                    
+                    <button type="button" onclick="window.ui.openMapModal()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 px-3 rounded-xl flex items-center justify-center gap-2 font-medium">
+                        <i class="fa-solid fa-map-location-dot text-amber-400"></i> Seleccionar en Mapa / GPS
+                    </button>
+                    <p id="location-status-text" class="text-[10px] text-slate-500 italic text-center mt-1">Ninguna ubicación seleccionada</p>
+                </div>
+
+                <!-- Days and Menus Builder -->
+                <div class="space-y-2">
+                    <label class="block font-semibold text-slate-800">Fechas y Menús Diarios</label>
+                    <div id="days-container" class="space-y-3">
+                        <!-- Dynamic Day Sections injected here -->
+                    </div>
+                </div>
+
+                <!-- Contacts Section -->
+                <div class="space-y-2 pt-2 border-t border-slate-200">
+                    <div class="flex items-center justify-between">
+                        <label class="block font-semibold text-slate-800">Contactos para Confirmación (WhatsApp)</label>
+                        <button type="button" onclick="window.ui.addContactRow()" class="text-[11px] font-semibold text-emerald-700 hover:underline flex items-center gap-1">
+                            <i class="fa-solid fa-plus"></i> Añadir
+                        </button>
+                    </div>
+                    <div id="contacts-container" class="space-y-2">
+                        <!-- Dynamic contacts injected here -->
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="pt-3 flex gap-2">
+                    <button type="button" onclick="window.ui.closeEventModal()" class="w-1/3 py-2.5 font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200">Cancelar</button>
+                    <button type="submit" class="w-2/3 py-2.5 font-semibold text-white bg-slate-900 rounded-xl hover:bg-slate-800 shadow-md">Guardar Evento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: MAP SELECTION (LEAFLET + OPENSTREETMAP) -->
+    <div id="modal-map" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3">
+        <div class="bg-white rounded-2xl max-w-md w-full h-[85vh] max-h-[600px] flex flex-col overflow-hidden shadow-2xl border border-slate-200">
+            <div class="bg-slate-900 text-white p-3.5 flex items-center justify-between">
+                <h3 class="font-bold text-xs flex items-center gap-2">
+                    <i class="fa-solid fa-location-dot text-amber-400"></i> Ubicación en Mapa
+                </h3>
+                <button onclick="window.ui.closeMapModal()" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <!-- Map Controls & Search -->
+            <div class="p-2.5 bg-slate-100 border-b border-slate-200 flex gap-2">
+                <input type="text" id="map-search-input" placeholder="Buscar dirección o lugar..." class="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-slate-800">
+                <button onclick="window.app.searchMapLocation()" class="bg-slate-800 text-white text-xs px-3 py-1.5 rounded-xl hover:bg-slate-700">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+                <button onclick="window.app.useDeviceGPS()" class="bg-amber-500 text-slate-950 text-xs px-3 py-1.5 rounded-xl font-bold hover:bg-amber-400">
+                    <i class="fa-solid fa-crosshairs"></i> GPS
+                </button>
+            </div>
+
+            <!-- Leaflet Map Canvas Container -->
+            <div id="map-canvas" class="flex-1 w-full bg-slate-200 relative"></div>
+
+            <div class="p-3 bg-white border-t border-slate-200 flex items-center justify-between">
+                <div class="text-[11px] text-slate-600 truncate pr-2" id="map-selected-label">Haga clic en el mapa para marcar</div>
+                <button onclick="window.app.confirmMapSelection()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2 px-4 rounded-xl shadow-sm whitespace-nowrap">
+                    Confirmar Ubicación
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: PUBLIC EVENT DETAILS & MENU VIEWER -->
+    <div id="modal-event-details" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full max-h-[88vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            <!-- Header -->
+            <div class="bg-slate-900 text-white p-4 relative border-b border-slate-800">
+                <button onclick="window.ui.closeDetailsModal()" class="absolute right-3 top-3 text-slate-400 hover:text-white p-1.5">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+                <span id="detail-type-badge" class="text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-amber-400 border border-slate-700 px-2 py-0.5 rounded-md inline-block mb-1">TIPO</span>
+                <h3 id="detail-title" class="text-xl font-extrabold leading-tight tracking-tight">Nombre del Evento</h3>
+                <div class="flex items-center gap-3 mt-2 text-xs text-slate-300">
+                    <span id="detail-date-range"><i class="fa-regular fa-calendar mr-1"></i> Fecha</span>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+                
+                <!-- Location Link Card -->
+                <div id="detail-location-card" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5 overflow-hidden">
+                        <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </div>
+                        <div class="truncate">
+                            <p class="text-[10px] font-semibold text-slate-400 uppercase">Ubicación</p>
+                            <p id="detail-location-name" class="text-xs font-bold text-slate-800 truncate">Lugar no especificado</p>
+                        </div>
+                    </div>
+                    <a id="detail-location-link" href="#" target="_blank" class="hidden text-xs bg-slate-900 text-white px-3 py-1.5 rounded-xl font-medium hover:bg-slate-800 whitespace-nowrap">
+                        Ver Mapa <i class="fa-solid fa-arrow-up-right-from-square ml-1 text-[10px]"></i>
+                    </a>
+                </div>
+
+                <!-- Daily Menus Timeline -->
+                <div class="space-y-3">
+                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-utensils text-amber-500"></i> Propuesta Gastronómica
+                    </h4>
+                    <div id="detail-days-list" class="space-y-3">
+                        <!-- Days injected dynamically -->
+                    </div>
+                </div>
+
+                <!-- WhatsApp Confirmations -->
+                <div class="pt-3 border-t border-slate-200 space-y-2">
+                    <p class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <i class="fa-brands fa-whatsapp text-emerald-500 text-sm"></i> Confirmación de Asistencia
+                    </p>
+                    <div id="detail-whatsapp-buttons" class="space-y-2">
+                        <!-- WhatsApp confirmation buttons injected here -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: GENERAL NOTICE / ALERT -->
+    <div id="modal-alert" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-4 text-center space-y-3 shadow-2xl">
+            <div id="alert-icon" class="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto text-lg">
+                <i class="fa-solid fa-circle-info"></i>
+            </div>
+            <h4 id="alert-title" class="font-bold text-slate-900 text-sm">Notificación</h4>
+            <p id="alert-message" class="text-xs text-slate-600">Mensaje...</p>
+            <button onclick="window.ui.closeAlert()" class="w-full py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl">Aceptar</button>
+        </div>
+    </div>
+
+
+</body>
+</html>
