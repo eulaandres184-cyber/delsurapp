@@ -40,6 +40,9 @@
                 <button onclick="window.ui.showTab('events')" id="nav-events-btn" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-white border border-slate-700 transition-all">
                     Eventos
                 </button>
+                <button id="nav-admin-btn" onclick="window.ui.showTab('admin')" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
+                    Admin <i class="fa-solid fa-lock ml-1 text-[10px] text-amber-400"></i>
+                </button>
             </nav>
         </div>
     </header>
@@ -149,6 +152,10 @@
             <div>
                 <h3 class="font-bold text-slate-900 text-base">Acceso Administrador</h3>
                 <p class="text-xs text-slate-500 mt-1">Ingrese el código PIN para acceder al panel de gestión.</p>
+            </div>
+            <div class="flex items-start gap-2 text-left bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5"></i>
+                <p><strong>Advertencia:</strong> esta sección permite crear, editar y eliminar eventos.</p>
             </div>
             <div>
                 <input type="password" id="admin-pin-input" placeholder="••••" maxlength="8" class="w-full text-center text-lg font-bold tracking-widest bg-slate-100 border border-slate-300 rounded-xl py-2 focus:outline-none focus:border-slate-800">
