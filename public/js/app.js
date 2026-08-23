@@ -5,6 +5,11 @@
 
         let eventsCollection = null;
 
+        function formatCurrency(value) {
+            const digits = String(value || '').replace(/\D/g, '');
+            return digits ? `$${Number(digits).toLocaleString('es-AR')}` : '';
+        }
+
         // APP STATE
         window.state = {
             events: [],
@@ -469,17 +474,16 @@
                     <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
                         <div class="flex items-center justify-between border-b border-slate-200 pb-1">
                             <span class="font-bold text-xs text-slate-800">Día ${idx + 1}</span>
-                            <span class="text-[11px] font-medium text-slate-500">${day.date || 'Sin fecha'}</span>
                         </div>
                         ${day.lunch ? `
                             <div class="text-xs">
-                                <label class="font-bold text-amber-700 block mb-0.5"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Almuerzo">☀️ Almuerzo${lunchTimeLabel}${day.lunchCost ? ` - $${day.lunchCost}` : ''}</label>
+                                <label class="font-bold text-amber-700 block mb-0.5"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Almuerzo">☀️ Almuerzo${lunchTimeLabel}${day.lunchCost ? ` - ${formatCurrency(day.lunchCost)}` : ''}</label>
                                 <p class="text-slate-700 whitespace-pre-line bg-white p-2 rounded-xl border border-slate-200/60">${day.lunch}</p>
                             </div>
                         ` : ''}
                         ${day.dinner ? `
                             <div class="text-xs">
-                                <label class="font-bold text-indigo-700 block mb-0.5"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Cena">🌙 Cena${dinnerTimeLabel}${day.dinnerCost ? ` - $${day.dinnerCost}` : ''}</label>
+                                <label class="font-bold text-indigo-700 block mb-0.5"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Cena">🌙 Cena${dinnerTimeLabel}${day.dinnerCost ? ` - ${formatCurrency(day.dinnerCost)}` : ''}</label>
                                 <p class="text-slate-700 whitespace-pre-line bg-white p-2 rounded-xl border border-slate-200/60">${day.dinner}</p>
                             </div>
                         ` : ''}
@@ -641,6 +645,7 @@
                 if (input === window.state.adminPIN) {
                     window.state.isAdmin = true;
                     document.getElementById('modal-admin-auth').classList.add('hidden');
+                    document.getElementById('admin-logout-btn').classList.remove('hidden');
                     window.ui.showTab('admin');
                 } else {
                     window.ui.showAlert('Error', 'PIN de administrador incorrecto.');
@@ -649,6 +654,7 @@
 
             logoutAdmin: () => {
                 window.state.isAdmin = false;
+                document.getElementById('admin-logout-btn').classList.add('hidden');
                 window.ui.showTab('events');
             },
 

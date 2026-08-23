@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <link rel="stylesheet" href="/css/styles.css">
-    <script type="module" src="/js/app.js"></script>
+    <script type="module" src="/js/app.js?v=20260823-1"></script>
 </head>
 <body class="h-full font-sans antialiased text-slate-800 bg-slate-100 flex flex-col min-h-screen">
 
@@ -42,6 +42,9 @@
                 </button>
                 <button id="nav-admin-btn" onclick="window.ui.showTab('admin')" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
                     Admin <i class="fa-solid fa-lock ml-1 text-[10px] text-amber-400"></i>
+                </button>
+                <button id="admin-logout-btn" onclick="window.app.logoutAdmin()" class="hidden text-xs text-rose-400 hover:text-rose-300 p-1.5 ml-1" aria-label="Cerrar sesión de administrador" title="Cerrar sesión">
+                    <i class="fa-solid fa-right-from-bracket"></i>
                 </button>
             </nav>
         </div>
@@ -212,8 +215,8 @@
 
                 <!-- Location Selector -->
                 <div class="space-y-1.5 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                    <label class="block font-semibold text-slate-800">Ubicación del Evento</label>
-                    <input type="text" id="form-location-name" placeholder="Nombre del lugar (Ej. Sociedad Rural de Palermo)" class="w-full bg-white border border-slate-300 rounded-xl p-2 focus:outline-none focus:border-slate-800 mb-2">
+                    <label class="block font-semibold text-slate-800">Nombre del lugar</label>
+                    <input type="text" id="form-location-name" placeholder="Ejemplo: Sociedad Rural de Palermo" class="w-full bg-white border border-slate-300 rounded-xl p-2 focus:outline-none focus:border-slate-800 mb-2">
                     <input type="hidden" id="form-location-url">
                     
                     <button type="button" onclick="window.ui.openMapModal()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 px-3 rounded-xl flex items-center justify-center gap-2 font-medium">
@@ -309,7 +312,7 @@
                             <i class="fa-solid fa-location-dot"></i>
                         </div>
                         <div class="truncate">
-                            <p class="text-[10px] font-semibold text-slate-400 uppercase">Ubicación</p>
+                            <p class="text-[10px] font-semibold text-slate-400 uppercase">Nombre del lugar</p>
                             <p id="detail-location-name" class="text-xs font-bold text-slate-800 truncate">Lugar no especificado</p>
                         </div>
                     </div>
