@@ -24,9 +24,9 @@
     <!-- Header / Navbar -->
     <header class="bg-slate-900 text-white sticky top-0 z-40 shadow-md border-b border-slate-800">
         <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
-            <!-- Triple Tap Gesture Trigger strictly on Utensils Icon -->
+            <!-- Hidden admin access trigger -->
             <div class="flex items-center gap-2.5 select-none">
-                <div id="admin-access-trigger" role="button" tabindex="0" aria-label="Acceso administrador" title="Acceso Admin (3 toques en utensilios)" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-amber-400 shadow-inner cursor-pointer active:scale-90 transition-transform">
+                <div id="admin-access-trigger" role="button" tabindex="0" aria-label="Acceso administrador" title="Acceso Admin" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-amber-400 shadow-inner cursor-pointer active:scale-90 transition-transform">
                     <i class="fa-solid fa-utensils text-base pointer-events-none"></i>
                 </div>
                 <div>
@@ -39,12 +39,6 @@
             <nav class="flex items-center gap-1">
                 <button onclick="window.ui.showTab('events')" id="nav-events-btn" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-white border border-slate-700 transition-all">
                     Eventos
-                </button>
-                <button id="nav-admin-btn" onclick="window.ui.showTab('admin')" class="hidden px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
-                    Admin <i class="fa-solid fa-lock-open ml-1 text-[10px] text-emerald-400"></i>
-                </button>
-                <button id="admin-logout-btn" onclick="window.app.logoutAdmin()" class="hidden text-xs text-rose-400 hover:text-rose-300 p-1.5 ml-1">
-                    <i class="fa-solid fa-right-from-bracket"></i>
                 </button>
             </nav>
         </div>
@@ -296,9 +290,6 @@
                 </button>
                 <span id="detail-type-badge" class="text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-amber-400 border border-slate-700 px-2 py-0.5 rounded-md inline-block mb-1">TIPO</span>
                 <h3 id="detail-title" class="text-xl font-extrabold leading-tight tracking-tight">Nombre del Evento</h3>
-                <div class="flex items-center gap-3 mt-2 text-xs text-slate-300">
-                    <span id="detail-date-range"><i class="fa-regular fa-calendar mr-1"></i> Fecha</span>
-                </div>
             </div>
 
             <!-- Content Area -->

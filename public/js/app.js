@@ -359,15 +359,14 @@
                 container.innerHTML = '';
 
                 for (let i = 0; i < count; i++) {
-                    const dayData = existingDays && existingDays[i] ? existingDays[i] : { date: '', lunch: '', lunchTime: '12:00', dinner: '', dinnerTime: '21:30' };
+                    const dayData = existingDays && existingDays[i] ? existingDays[i] : { date: '', lunch: '', lunchTime: '12:00', lunchCost: '', dinner: '', dinnerTime: '21:30', dinnerCost: '' };
                     const dayDiv = document.createElement('div');
                     dayDiv.className = 'p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2';
                     dayDiv.innerHTML = `
                         <div class="flex items-center justify-between">
                             <span class="font-bold text-slate-800 text-xs">Día ${i + 1}</span>
                             <div class="flex items-center gap-1">
-                                <label for="day-date-${i}" class="text-[11px] text-slate-500 font-medium cursor-pointer select-none">Fecha:</label>
-                                <input type="date" id="day-date-${i}" value="${dayData.date || ''}" class="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-slate-800">
+                                <input type="date" id="day-date-${i}" aria-label="Fecha del día ${i + 1}" value="${dayData.date || ''}" class="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-slate-800">
                             </div>
                         </div>
                         <div class="grid grid-cols-1 gap-2">
@@ -377,6 +376,7 @@
                                     <div class="flex items-center gap-1">
                                         <span class="text-[10px] text-slate-500 font-medium">Hora:</span>
                                         <input type="time" id="day-lunch-time-${i}" value="${dayData.lunchTime || '12:00'}" class="bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <input type="text" id="day-lunch-cost-${i}" value="${dayData.lunchCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo del almuerzo" class="day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
                                     </div>
                                 </div>
                                 <textarea id="day-lunch-${i}" rows="2" placeholder="Ej. Entrada: Empanadas 🥟&#10;Principal: Asado completo 🥩" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.lunch || ''}</textarea>
@@ -387,6 +387,7 @@
                                     <div class="flex items-center gap-1">
                                         <span class="text-[10px] text-slate-500 font-medium">Hora:</span>
                                         <input type="time" id="day-dinner-time-${i}" value="${dayData.dinnerTime || '21:30'}" class="bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <input type="text" id="day-dinner-cost-${i}" value="${dayData.dinnerCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo de la cena" class="day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
                                     </div>
                                 </div>
                                 <textarea id="day-dinner-${i}" rows="2" placeholder="Ej. Cazuela de mariscos 🥘&#10;Postre: Volcán de chocolate 🍰" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.dinner || ''}</textarea>
@@ -394,6 +395,11 @@
                         </div>
                     `;
                     container.appendChild(dayDiv);
+                    dayDiv.querySelectorAll('.day-cost-input').forEach((input) => {
+                        input.addEventListener('input', (event) => {
+                            event.target.value = event.target.value.replace(/\D/g, '');
+                        });
+                    });
                 }
             },
 
@@ -409,6 +415,9 @@
                     </button>
                 `;
                 container.appendChild(div);
+                div.querySelector('.contact-phone').addEventListener('input', (event) => {
+                    event.target.value = event.target.value.replace(/\D/g, '');
+                });
             },
 
             openMapModal: () => {
@@ -439,7 +448,6 @@
 
                 document.getElementById('detail-type-badge').textContent = evt.type || 'EVENTO';
                 document.getElementById('detail-title').textContent = evt.title;
-                document.getElementById('detail-date-range').innerHTML = `<i class="fa-regular fa-calendar mr-1"></i> ${formatEventDateLabel(evt.days)}`;
 
                 const locName = document.getElementById('detail-location-name');
                 const locLink = document.getElementById('detail-location-link');
@@ -465,13 +473,13 @@
                         </div>
                         ${day.lunch ? `
                             <div class="text-xs">
-                                <span class="font-bold text-amber-700 block mb-0.5">☀️ Almuerzo${lunchTimeLabel}:</span>
+                                <label class="font-bold text-amber-700 block mb-0.5"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Almuerzo">☀️ Almuerzo${lunchTimeLabel}${day.lunchCost ? ` - $${day.lunchCost}` : ''}</label>
                                 <p class="text-slate-700 whitespace-pre-line bg-white p-2 rounded-xl border border-slate-200/60">${day.lunch}</p>
                             </div>
                         ` : ''}
                         ${day.dinner ? `
                             <div class="text-xs">
-                                <span class="font-bold text-indigo-700 block mb-0.5">🌙 Cena${dinnerTimeLabel}:</span>
+                                <label class="font-bold text-indigo-700 block mb-0.5"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Cena">🌙 Cena${dinnerTimeLabel}${day.dinnerCost ? ` - $${day.dinnerCost}` : ''}</label>
                                 <p class="text-slate-700 whitespace-pre-line bg-white p-2 rounded-xl border border-slate-200/60">${day.dinner}</p>
                             </div>
                         ` : ''}
@@ -483,9 +491,13 @@
                 const waContainer = document.getElementById('detail-whatsapp-buttons');
                 const contacts = evt.contacts && evt.contacts.length ? evt.contacts : [{ name: 'Organizador', phone: '5491112345678' }];
 
-                waContainer.innerHTML = contacts.map(c => {
+                const renderWhatsAppButtons = () => {
+                    const selectedOptions = [...document.querySelectorAll('.confirmation-option:checked')]
+                        .map(option => `Día ${option.dataset.day} - ${option.dataset.meal}`);
+                    const attendance = selectedOptions.length ? selectedOptions.join(', ') : 'todos los momentos del evento';
+                    waContainer.innerHTML = contacts.map(c => {
                     const cleanPhone = (c.phone || '').replace(/\D/g, '');
-                    const message = encodeURIComponent(`Hola ${c.name}, quisiera confirmar asistencia para el evento "${evt.title}".`);
+                    const message = encodeURIComponent(`Hola ${c.name || 'organizador'}, quiero confirmar mi asistencia al evento "${evt.title}" para: ${attendance}.`);
                     const waUrl = `https://wa.me/${cleanPhone}?text=${message}`;
 
                     return `
@@ -493,7 +505,13 @@
                             <i class="fa-brands fa-whatsapp text-sm"></i> Confirmar con ${c.name || 'Contacto'}
                         </a>
                     `;
-                }).join('');
+                    }).join('');
+                };
+
+                document.querySelectorAll('.confirmation-option').forEach(option => {
+                    option.addEventListener('change', renderWhatsAppButtons);
+                });
+                renderWhatsAppButtons();
 
                 document.getElementById('modal-event-details').classList.remove('hidden');
             },
@@ -527,11 +545,33 @@
 
                 const adminTrigger = document.getElementById('admin-access-trigger');
                 if (adminTrigger) {
-                    adminTrigger.addEventListener('click', window.app.handleHeaderTap);
+                    let pressTimer = null;
+                    const cancelPress = () => {
+                        if (pressTimer) clearTimeout(pressTimer);
+                        pressTimer = null;
+                    };
+                    adminTrigger.addEventListener('pointerdown', (event) => {
+                        if (event.pointerType === 'mouse') return;
+                        pressTimer = setTimeout(() => {
+                            pressTimer = null;
+                            window.app.requestAdminAccess();
+                        }, 650);
+                    });
+                    adminTrigger.addEventListener('touchstart', () => {
+                        pressTimer = setTimeout(() => {
+                            pressTimer = null;
+                            window.app.requestAdminAccess();
+                        }, 650);
+                    }, { passive: true });
+                    adminTrigger.addEventListener('pointerup', cancelPress);
+                    adminTrigger.addEventListener('pointercancel', cancelPress);
+                    adminTrigger.addEventListener('pointerleave', cancelPress);
+                    adminTrigger.addEventListener('touchend', cancelPress, { passive: true });
+                    adminTrigger.addEventListener('touchcancel', cancelPress, { passive: true });
                     adminTrigger.addEventListener('keydown', (event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                             event.preventDefault();
-                            window.app.handleHeaderTap();
+                            window.app.requestAdminAccess();
                         }
                     });
                 }
@@ -601,8 +641,6 @@
                 if (input === window.state.adminPIN) {
                     window.state.isAdmin = true;
                     document.getElementById('modal-admin-auth').classList.add('hidden');
-                    document.getElementById('nav-admin-btn').classList.remove('hidden');
-                    document.getElementById('admin-logout-btn').classList.remove('hidden');
                     window.ui.showTab('admin');
                 } else {
                     window.ui.showAlert('Error', 'PIN de administrador incorrecto.');
@@ -611,8 +649,6 @@
 
             logoutAdmin: () => {
                 window.state.isAdmin = false;
-                document.getElementById('nav-admin-btn').classList.add('hidden');
-                document.getElementById('admin-logout-btn').classList.add('hidden');
                 window.ui.showTab('events');
             },
 
@@ -636,8 +672,10 @@
                         date: document.getElementById(`day-date-${i}`)?.value || '',
                         lunch: document.getElementById(`day-lunch-${i}`)?.value || '',
                         lunchTime: document.getElementById(`day-lunch-time-${i}`)?.value || '',
+                        lunchCost: document.getElementById(`day-lunch-cost-${i}`)?.value || '',
                         dinner: document.getElementById(`day-dinner-${i}`)?.value || '',
-                        dinnerTime: document.getElementById(`day-dinner-time-${i}`)?.value || ''
+                        dinnerTime: document.getElementById(`day-dinner-time-${i}`)?.value || '',
+                        dinnerCost: document.getElementById(`day-dinner-cost-${i}`)?.value || ''
                     });
                 }
 
