@@ -2,12 +2,45 @@
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { firebaseConfig, firebaseCollectionPath } from './firebase-config.js';
+        import {
+            formatCurrency,
+            formatEventDateLabel,
+            getAppleMapsUrl,
+            getGoogleMapsUrl,
+            getMapCoordinates,
+            getLocationName,
+            isEventExpired,
+            isIOS,
+            isMomentPast,
+            isNumericLocationName
+        } from './domain.js';
+        import { googleMapsApiKey } from './google-maps-config.js';
 
         let eventsCollection = null;
+        let googleMapsPromise = null;
 
-        function formatCurrency(value) {
-            const digits = String(value || '').replace(/\D/g, '');
-            return digits ? `$${Number(digits).toLocaleString('es-AR')}` : '';
+        function loadGoogleMaps() {
+            if (window.google?.maps) return Promise.resolve(window.google.maps);
+            if (!googleMapsApiKey) return Promise.reject(new Error('Falta configurar la clave de Google Maps.'));
+            if (googleMapsPromise) return googleMapsPromise;
+
+            googleMapsPromise = new Promise((resolve, reject) => {
+                const callbackName = `initGoogleMaps_${Date.now()}`;
+                window[callbackName] = () => {
+                    delete window[callbackName];
+                    resolve(window.google.maps);
+                };
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(googleMapsApiKey)}&v=weekly&loading=async&callback=${callbackName}`;
+                script.async = true;
+                script.onerror = () => {
+                    delete window[callbackName];
+                    googleMapsPromise = null;
+                    reject(new Error('No se pudo cargar Google Maps.'));
+                };
+                document.head.appendChild(script);
+            });
+            return googleMapsPromise;
         }
 
         // APP STATE
@@ -24,7 +57,9 @@
             currentMapCoords: null,
             mapInstance: null,
             mapMarker: null,
-            editingEventId: null
+            editingEventId: null,
+            currentLocationName: '',
+            currentMapUrl: ''
         };
 
         // CAROUSEL DATA
@@ -124,50 +159,38 @@
             }
         };
 
-        // DATE FORMATTER FOR CARDS
-        function formatEventDateLabel(days) {
-            if (!days || !days.length) return 'Fecha a confirmar';
-            const validDates = days.map(d => d.date).filter(Boolean).sort();
-            if (!validDates.length) return 'Fecha a confirmar';
-
-            const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-            const parse = (str) => {
-                const p = str.split('-');
-                return p.length === 3 ? { y: parseInt(p[0]), m: parseInt(p[1]) - 1, d: parseInt(p[2]) } : null;
-            };
-
-            const parsed = validDates.map(parse).filter(Boolean);
-            if (!parsed.length) return 'Fecha a confirmar';
-
-            const first = parsed[0];
-            const last = parsed[parsed.length - 1];
-
-            if (parsed.length === 1) {
-                return `${first.d} ${months[first.m]} ${first.y}`;
-            } else if (parsed.length === 2) {
-                if (first.m === last.m && first.y === last.y) {
-                    return `${first.d} y ${last.d} ${months[first.m]} ${first.y}`;
-                } else {
-                    return `${first.d} ${months[first.m]} y ${last.d} ${months[last.m]} ${first.y}`;
-                }
-            } else {
-                if (first.m === last.m && first.y === last.y) {
-                    return `${first.d} al ${last.d} ${months[first.m]} ${first.y}`;
-                } else {
-                    return `${first.d} ${months[first.m]} al ${last.d} ${months[last.m]} ${first.y}`;
+        function openMapUrl(url) {
+            if (isIOS()) {
+                const coordinates = getMapCoordinates(url);
+                if (coordinates) {
+                    window.location.href = getAppleMapsUrl(coordinates.lat, coordinates.lng);
+                    return;
                 }
             }
+            window.open(url, '_blank', 'noopener');
         }
 
-        // EXPIRATION CHECKER
-        function isEventExpired(event) {
-            if (!event.days || !event.days.length) return false;
-            const validDates = event.days.map(d => d.date).filter(Boolean).sort();
-            if (!validDates.length) return false;
+        function getEventLocationName(event) {
+            return isNumericLocationName(event?.locationName)
+                ? 'Ubicación seleccionada'
+                : event?.locationName || 'Ubicación a confirmar';
+        }
 
-            const lastDateStr = validDates[validDates.length - 1];
-            const todayStr = new Date().toISOString().split('T')[0];
-            return lastDateStr < todayStr;
+        async function hydrateLocationNames(events) {
+            const pending = events.filter(event => isNumericLocationName(event.locationName) && event.locationUrl);
+            await Promise.all(pending.map(async event => {
+                const coordinates = getMapCoordinates(event.locationUrl);
+                if (!coordinates) return;
+                try {
+                            await loadGoogleMaps();
+                            const result = await new google.maps.Geocoder().geocode({ location: coordinates });
+                            const name = getLocationName({ display_name: result.results?.[0]?.formatted_address });
+                    if (name) event.locationName = name;
+                } catch (error) {}
+            }));
+            localStorage.setItem('catering_events_v2', JSON.stringify(events));
+            window.ui.renderPublicEvents();
+            if (window.state.isAdmin) window.ui.renderAdminList();
         }
 
         window.ui = {
@@ -215,7 +238,7 @@
                 empty.classList.add('hidden');
                 grid.innerHTML = activeEvents.map(evt => {
                     const dateText = formatEventDateLabel(evt.days);
-                    const locationName = evt.locationName || 'Ubicación a confirmar';
+                    const locationName = getEventLocationName(evt);
 
                     return `
                         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 hover:shadow-md transition-shadow flex flex-col justify-between space-y-3">
@@ -313,6 +336,7 @@
 
             openEventModal: (eventId = null) => {
                 window.state.editingEventId = eventId;
+                window.state.currentLocationName = '';
                 const modal = document.getElementById('modal-event-form');
                 const title = document.getElementById('event-form-title');
                 const form = document.getElementById('event-form');
@@ -331,7 +355,7 @@
                         document.getElementById('form-title').value = evt.title;
                         document.getElementById('form-type').value = evt.type || 'Corporativo';
                         document.getElementById('form-days-count').value = (evt.days ? evt.days.length : 3).toString();
-                        document.getElementById('form-location-name').value = evt.locationName || '';
+                        document.getElementById('form-location-name').value = isNumericLocationName(evt.locationName) ? '' : (evt.locationName || '');
                         document.getElementById('form-location-url').value = evt.locationUrl || '';
                         
                         if (evt.locationName || evt.locationUrl) {
@@ -427,20 +451,22 @@
 
             openMapModal: () => {
                 document.getElementById('modal-map').classList.remove('hidden');
-                setTimeout(() => {
+                loadGoogleMaps().then((maps) => {
                     if (!window.state.mapInstance) {
-                        window.state.mapInstance = L.map('map-canvas').setView([-34.6037, -58.3816], 12);
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                            attribution: '© OpenStreetMap'
-                        }).addTo(window.state.mapInstance);
-
-                        window.state.mapInstance.on('click', (e) => {
-                            window.app.setMapMarker(e.latlng.lat, e.latlng.lng);
+                        window.state.mapInstance = new maps.Map(document.getElementById('map-canvas'), {
+                            center: { lat: -34.6037, lng: -58.3816 },
+                            zoom: 12,
+                            mapTypeControl: false,
+                            streetViewControl: false,
+                            fullscreenControl: false
                         });
-                    } else {
-                        window.state.mapInstance.invalidateSize();
+                        window.state.mapInstance.addListener('click', (event) => {
+                            window.app.setMapMarker(event.latLng.lat(), event.latLng.lng());
+                        });
                     }
-                }, 200);
+                }).catch((error) => {
+                    document.getElementById('map-selected-label').textContent = error.message;
+                });
             },
 
             closeMapModal: () => {
@@ -456,12 +482,17 @@
 
                 const locName = document.getElementById('detail-location-name');
                 const locLink = document.getElementById('detail-location-link');
-                locName.textContent = evt.locationName || 'Ubicación a confirmar';
+                locName.textContent = getEventLocationName(evt);
 
                 if (evt.locationUrl) {
                     locLink.href = evt.locationUrl;
+                    locLink.onclick = (event) => {
+                        event.preventDefault();
+                        openMapUrl(evt.locationUrl);
+                    };
                     locLink.classList.remove('hidden');
                 } else {
+                    locLink.onclick = null;
                     locLink.classList.add('hidden');
                 }
 
@@ -470,20 +501,22 @@
                 daysContainer.innerHTML = (evt.days || []).map((day, idx) => {
                     const lunchTimeLabel = day.lunchTime ? ` ${day.lunchTime}Hs` : '';
                     const dinnerTimeLabel = day.dinnerTime ? ` ${day.dinnerTime}Hs` : '';
+                    const lunchPast = isMomentPast(day.date, day.lunchTime);
+                    const dinnerPast = isMomentPast(day.date, day.dinnerTime);
                     return `
                     <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
                         <div class="flex items-center justify-between border-b border-slate-200 pb-1">
                             <span class="font-bold text-xs text-slate-800">Día ${idx + 1}</span>
                         </div>
                         ${day.lunch ? `
-                            <div class="text-xs">
-                                <label class="font-bold text-amber-700 block mb-0.5"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Almuerzo">☀️ Almuerzo${lunchTimeLabel}${day.lunchCost ? ` - ${formatCurrency(day.lunchCost)}` : ''}</label>
+                            <div class="text-xs ${lunchPast ? 'opacity-40' : ''}">
+                                <label class="font-bold text-amber-700 block mb-0.5 ${lunchPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Almuerzo" ${lunchPast ? 'disabled' : ''}>☀️ Almuerzo${lunchTimeLabel}${day.lunchCost ? ` - ${formatCurrency(day.lunchCost)}` : ''}${lunchPast ? ' (finalizado)' : ''}</label>
                                 <p class="text-slate-700 whitespace-pre-line bg-white p-2 rounded-xl border border-slate-200/60">${day.lunch}</p>
                             </div>
                         ` : ''}
                         ${day.dinner ? `
-                            <div class="text-xs">
-                                <label class="font-bold text-indigo-700 block mb-0.5"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Cena">🌙 Cena${dinnerTimeLabel}${day.dinnerCost ? ` - ${formatCurrency(day.dinnerCost)}` : ''}</label>
+                            <div class="text-xs ${dinnerPast ? 'opacity-40' : ''}">
+                                <label class="font-bold text-indigo-700 block mb-0.5 ${dinnerPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Cena" ${dinnerPast ? 'disabled' : ''}>🌙 Cena${dinnerTimeLabel}${day.dinnerCost ? ` - ${formatCurrency(day.dinnerCost)}` : ''}${dinnerPast ? ' (finalizado)' : ''}</label>
                                 <p class="text-slate-700 whitespace-pre-line bg-white p-2 rounded-xl border border-slate-200/60">${day.dinner}</p>
                             </div>
                         ` : ''}
@@ -587,6 +620,7 @@
                 }
 
                 window.ui.renderPublicEvents();
+                hydrateLocationNames(window.state.events);
 
                 // Initialize Firebase Firestore Sync
                 try {
@@ -606,6 +640,7 @@
                             localStorage.setItem('catering_events_v2', JSON.stringify(remoteEvents));
                             window.ui.renderPublicEvents();
                             if (window.state.isAdmin) window.ui.renderAdminList();
+                            hydrateLocationNames(remoteEvents);
                         }, (error) => {
                             console.warn('Firestore fallback to local:', error);
                         });
@@ -669,7 +704,10 @@
                 }
                 const type = document.getElementById('form-type').value;
                 const daysCount = parseInt(document.getElementById('form-days-count').value, 10);
-                const locationName = document.getElementById('form-location-name').value;
+                let locationName = document.getElementById('form-location-name').value.trim();
+                if (isNumericLocationName(locationName)) {
+                    locationName = window.state.currentLocationName || 'Ubicación seleccionada';
+                }
                 const locationUrl = document.getElementById('form-location-url').value;
 
                 const days = [];
@@ -747,44 +785,46 @@
 
             setMapMarker: (lat, lng, label = '') => {
                 window.state.currentMapCoords = { lat, lng };
+                window.state.currentLocationName = label && !isNumericLocationName(label) ? label.trim() : '';
                 if (window.state.mapMarker) {
-                    window.state.mapMarker.setLatLng([lat, lng]);
+                    window.state.mapMarker.setPosition({ lat, lng });
                 } else {
-                    window.state.mapMarker = L.marker([lat, lng]).addTo(window.state.mapInstance);
+                    window.state.mapMarker = new google.maps.Marker({
+                        map: window.state.mapInstance,
+                        position: { lat, lng }
+                    });
                 }
-                window.state.mapInstance.panTo([lat, lng]);
+                window.state.mapInstance.panTo({ lat, lng });
 
                 document.getElementById('map-selected-label').textContent = label || `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
 
-                // Reverse geocode
-                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data && data.display_name) {
-                            const name = data.display_name.split(',')[0];
+                loadGoogleMaps().then(() => new google.maps.Geocoder().geocode({ location: { lat, lng } }))
+                    .then(result => {
+                        const name = result.results?.[0]?.formatted_address;
+                        if (name) {
                             document.getElementById('map-selected-label').textContent = name;
                             window.state.currentLocationName = name;
                         }
-                    })
-                    .catch(() => {});
+                    }).catch(() => {});
             },
 
             searchMapLocation: () => {
                 const query = document.getElementById('map-search-input').value;
                 if (!query) return;
 
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
-                    .then(res => res.json())
-                    .then(results => {
-                        if (results && results.length > 0) {
-                            const first = results[0];
-                            const lat = parseFloat(first.lat);
-                            const lng = parseFloat(first.lon);
-                            window.app.setMapMarker(lat, lng, first.display_name.split(',')[0]);
+                loadGoogleMaps().then(() => new google.maps.Geocoder().geocode({ address: query }))
+                    .then(result => {
+                        const first = result.results?.[0];
+                        if (first) {
+                            const location = first.geometry.location;
+                            const lat = location.lat();
+                            const lng = location.lng();
+                            window.app.setMapMarker(lat, lng, first.formatted_address);
+                            window.state.mapInstance.setZoom(16);
                         } else {
                             window.ui.showAlert('Mapa', 'No se encontraron resultados para la búsqueda.');
                         }
-                    });
+                    }).catch(error => window.ui.showAlert('Google Maps', error.message));
             },
 
             useDeviceGPS: () => {
@@ -807,7 +847,7 @@
                 }
 
                 const { lat, lng } = window.state.currentMapCoords;
-                const url = `https://www.google.com/maps?q=${lat},${lng}`;
+                const url = getGoogleMapsUrl(lat, lng);
                 const nameInput = document.getElementById('form-location-name');
 
                 if (window.state.currentLocationName && !nameInput.value) {
@@ -815,8 +855,17 @@
                 }
 
                 document.getElementById('form-location-url').value = url;
-                document.getElementById('location-status-text').textContent = `Ubicación configurada (Google Maps)`;
+                document.getElementById('location-status-text').textContent = `Ubicación configurada (${isIOS() ? 'Apple Maps' : 'Google Maps'})`;
                 window.ui.closeMapModal();
+            },
+
+            openSelectedLocation: () => {
+                if (!window.state.currentMapCoords) {
+                    window.ui.showAlert('Mapa', 'Por favor selecciona un punto en el mapa.');
+                    return;
+                }
+                const { lat, lng } = window.state.currentMapCoords;
+                openMapUrl(getGoogleMapsUrl(lat, lng));
             },
 
             handleAdminSearch: (val) => {

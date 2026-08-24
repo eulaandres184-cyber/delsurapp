@@ -12,12 +12,8 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Leaflet CSS & JS for Interactive Map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <link rel="stylesheet" href="/css/styles.css">
-    <script type="module" src="/js/app.js?v=20260823-1"></script>
+    <script type="module" src="/js/app.js?v=20260823-4"></script>
 </head>
 <body class="h-full font-sans antialiased text-slate-800 bg-slate-100 flex flex-col min-h-screen">
 
@@ -255,7 +251,7 @@
         </div>
     </div>
 
-    <!-- MODAL: MAP SELECTION (LEAFLET + OPENSTREETMAP) -->
+    <!-- MODAL: MAP SELECTION -->
     <div id="modal-map" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3">
         <div class="bg-white rounded-2xl max-w-md w-full h-[85vh] max-h-[600px] flex flex-col overflow-hidden shadow-2xl border border-slate-200">
             <div class="bg-slate-900 text-white p-3.5 flex items-center justify-between">
@@ -278,14 +274,19 @@
                 </button>
             </div>
 
-            <!-- Leaflet Map Canvas Container -->
+            <!-- Interactive map canvas -->
             <div id="map-canvas" class="flex-1 w-full bg-slate-200 relative"></div>
 
             <div class="p-3 bg-white border-t border-slate-200 flex items-center justify-between">
                 <div class="text-[11px] text-slate-600 truncate pr-2" id="map-selected-label">Haga clic en el mapa para marcar</div>
-                <button onclick="window.app.confirmMapSelection()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2 px-4 rounded-xl shadow-sm whitespace-nowrap">
-                    Confirmar Ubicación
-                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="window.app.openSelectedLocation()" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs py-2 px-3 rounded-xl shadow-sm whitespace-nowrap" title="Abrir en la aplicación de mapas">
+                        <i class="fa-solid fa-map"></i>
+                    </button>
+                    <button onclick="window.app.confirmMapSelection()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2 px-4 rounded-xl shadow-sm whitespace-nowrap">
+                        Confirmar
+                    </button>
+                </div>
             </div>
         </div>
     </div>
