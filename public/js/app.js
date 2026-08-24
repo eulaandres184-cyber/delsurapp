@@ -170,6 +170,22 @@
             window.open(url, '_blank', 'noopener');
         }
 
+        function getGeocodingError(status) {
+            if (status === 'REQUEST_DENIED') {
+                return 'Google Maps no autoriza Geocoding API para esta clave. Revise las restricciones de API y la facturación en Google Cloud.';
+            }
+            if (status === 'ZERO_RESULTS') return 'Google Maps no encontró esa ubicación.';
+            if (status === 'OVER_QUERY_LIMIT') return 'Se alcanzó el límite de consultas de Google Maps.';
+            return `Google Maps no pudo resolver la ubicación (${status || 'error desconocido'}).`;
+        }
+
+        async function geocode(request) {
+            await loadGoogleMaps();
+            const response = await new google.maps.Geocoder().geocode(request);
+            if (response.status !== 'OK') throw new Error(getGeocodingError(response.status));
+            return response.results;
+        }
+
         function getEventLocationName(event) {
             return isNumericLocationName(event?.locationName)
                 ? 'Ubicación seleccionada'
@@ -182,11 +198,12 @@
                 const coordinates = getMapCoordinates(event.locationUrl);
                 if (!coordinates) return;
                 try {
-                            await loadGoogleMaps();
-                            const result = await new google.maps.Geocoder().geocode({ location: coordinates });
-                            const name = getLocationName({ display_name: result.results?.[0]?.formatted_address });
+                    const results = await geocode({ location: coordinates });
+                    const name = getLocationName({ display_name: results[0]?.formatted_address });
                     if (name) event.locationName = name;
-                } catch (error) {}
+                } catch (error) {
+                    console.warn('No se pudo actualizar el nombre del lugar:', error.message);
+                }
             }));
             localStorage.setItem('catering_events_v2', JSON.stringify(events));
             window.ui.renderPublicEvents();
@@ -798,23 +815,25 @@
 
                 document.getElementById('map-selected-label').textContent = label || `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
 
-                loadGoogleMaps().then(() => new google.maps.Geocoder().geocode({ location: { lat, lng } }))
-                    .then(result => {
-                        const name = result.results?.[0]?.formatted_address;
+                geocode({ location: { lat, lng } })
+                    .then(results => {
+                        const name = results[0]?.formatted_address;
                         if (name) {
                             document.getElementById('map-selected-label').textContent = name;
                             window.state.currentLocationName = name;
                         }
-                    }).catch(() => {});
+                    }).catch(error => {
+                        document.getElementById('map-selected-label').textContent = error.message;
+                    });
             },
 
             searchMapLocation: () => {
                 const query = document.getElementById('map-search-input').value;
                 if (!query) return;
 
-                loadGoogleMaps().then(() => new google.maps.Geocoder().geocode({ address: query }))
-                    .then(result => {
-                        const first = result.results?.[0];
+                geocode({ address: query })
+                    .then(results => {
+                        const first = results[0];
                         if (first) {
                             const location = first.geometry.location;
                             const lat = location.lat();
