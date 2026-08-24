@@ -189,6 +189,19 @@
                 : event?.locationName || 'Ubicación a confirmar';
         }
 
+        function getEventTypeLabel(type) {
+            const emojis = {
+                Corporativo: '💼',
+                Boda: '💍',
+                Cumpleaños: '🎈',
+                Retiro: '🌿',
+                Privado: '🏠',
+                Otro: '🎉'
+            };
+            const eventType = type || 'Evento';
+            return `${emojis[eventType] || '🎉'} ${eventType}`;
+        }
+
         async function hydrateLocationNames(events) {
             const pending = events.filter(event => isNumericLocationName(event.locationName) && event.locationUrl);
             await Promise.all(pending.map(async event => {
@@ -257,7 +270,7 @@
                             <div>
                                 <div class="flex items-center justify-between mb-2">
                                     <span class="text-[10px] font-bold tracking-wider uppercase bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full border border-slate-200">
-                                        ${evt.type || 'Evento'}
+                                        ${getEventTypeLabel(evt.type)}
                                     </span>
                                 </div>
 
@@ -326,7 +339,7 @@
                             <div class="overflow-hidden">
                                 <div class="flex items-center gap-2 mb-1">
                                     <span class="text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
-                                        ${evt.type || 'Evento'}
+                                        ${getEventTypeLabel(evt.type)}
                                     </span>
                                     ${expired ? `<span class="text-[9px] font-bold uppercase bg-rose-100 text-rose-700 px-2 py-0.5 rounded-md">Caducado</span>` : `<span class="text-[9px] font-bold uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md">Activo</span>`}
                                 </div>
@@ -489,7 +502,7 @@
                 const evt = window.state.events.find(e => e.id === eventId);
                 if (!evt) return;
 
-                document.getElementById('detail-type-badge').textContent = evt.type || 'EVENTO';
+                document.getElementById('detail-type-badge').textContent = getEventTypeLabel(evt.type);
                 document.getElementById('detail-title').textContent = evt.title;
 
                 const locName = document.getElementById('detail-location-name');
@@ -862,7 +875,7 @@
                 const url = getGoogleMapsUrl(lat, lng);
                 const nameInput = document.getElementById('form-location-name');
 
-                if (window.state.currentLocationName && !nameInput.value) {
+                if (window.state.currentLocationName) {
                     nameInput.value = window.state.currentLocationName;
                 }
 
