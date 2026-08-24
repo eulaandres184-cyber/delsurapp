@@ -43,6 +43,19 @@
             return googleMapsPromise;
         }
 
+        async function geocode(request) {
+            await loadGoogleMaps();
+            try {
+                return await new google.maps.Geocoder().geocode(request);
+            } catch (error) {
+                const message = String(error?.message || error || '');
+                if (message.includes('REQUEST_DENIED') || message.includes('not allowed to use the geocoder')) {
+                    throw new Error('La clave de Google Maps no tiene habilitado Geocoding API o el dominio actual no está autorizado.');
+                }
+                throw error;
+            }
+        }
+
         // APP STATE
         window.state = {
             events: [],
@@ -182,8 +195,7 @@
                 const coordinates = getMapCoordinates(event.locationUrl);
                 if (!coordinates) return;
                 try {
-                            await loadGoogleMaps();
-                            const result = await new google.maps.Geocoder().geocode({ location: coordinates });
+                            const result = await geocode({ location: coordinates });
                             const name = getLocationName({ display_name: result.results?.[0]?.formatted_address });
                     if (name) event.locationName = name;
                 } catch (error) {}
@@ -798,7 +810,7 @@
 
                 document.getElementById('map-selected-label').textContent = label || `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
 
-                loadGoogleMaps().then(() => new google.maps.Geocoder().geocode({ location: { lat, lng } }))
+                geocode({ location: { lat, lng } })
                     .then(result => {
                         const name = result.results?.[0]?.formatted_address;
                         if (name) {
@@ -812,7 +824,7 @@
                 const query = document.getElementById('map-search-input').value;
                 if (!query) return;
 
-                loadGoogleMaps().then(() => new google.maps.Geocoder().geocode({ address: query }))
+                geocode({ address: query })
                     .then(result => {
                         const first = result.results?.[0];
                         if (first) {
