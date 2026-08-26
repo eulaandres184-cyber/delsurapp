@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Del Sur Eventos - Servicio de Catering</title>
-    <link rel="icon" type="image/png" href="./img/menu.png">
+    <link rel="icon" type="image/jpeg" href="./img/logo.jpg">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -93,6 +93,16 @@
                 <h3 class="text-sm font-bold text-slate-800">No hay eventos disponibles</h3>
                 <p class="text-xs text-slate-500 mt-1">Actualmente no hay menús cargados para consultar.</p>
             </div>
+
+            <!-- Floating WhatsApp contact button for future event inquiries. -->
+            <a href="https://wa.me/5491112345678?text=Hola%2C%20quiero%20consultar%20por%20futuros%20eventos."
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Contactar a la administración por WhatsApp"
+                title="Contactar por WhatsApp"
+                class="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95">
+                <i class="fa-brands fa-whatsapp text-3xl"></i>
+            </a>
         </section>
 
         <!-- ADMIN PANEL VIEW -->
@@ -307,12 +317,22 @@
             </div>
 
             <!-- Content Area -->
-            <div class="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
                 
+                <!-- Daily Menus Timeline -->
+                <div class="space-y-3">
+                    <h4 class="text-base font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-utensils text-amber-500"></i> Propuesta Gastronómica
+                    </h4>
+                    <div id="detail-days-list" class="space-y-3">
+                        <!-- Days injected dynamically -->
+                    </div>
+                </div>
+
                 <!-- Location Link Card -->
-                <div id="detail-location-card" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+                <div id="detail-location-card" class="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
                     <div class="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
-                        <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+                        <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
                             <i class="fa-solid fa-location-dot"></i>
                         </div>
                         <div class="truncate">
@@ -325,22 +345,9 @@
                     </a>
                 </div>
 
-                <!-- Daily Menus Timeline -->
-                <div class="space-y-3">
-                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                        <i class="fa-solid fa-utensils text-amber-500"></i> Propuesta Gastronómica
-                    </h4>
-                    <div id="detail-days-list" class="space-y-3">
-                        <!-- Days injected dynamically -->
-                    </div>
-                </div>
-
-                <!-- WhatsApp Confirmations -->
-                <div class="pt-3 border-t border-slate-200 space-y-2">
-                    <p class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <i class="fa-brands fa-whatsapp text-emerald-500 text-sm"></i> Confirmación de Asistencia
-                    </p>
-                    <div id="detail-whatsapp-buttons" class="space-y-2">
+                <!-- WhatsApp confirmation actions. -->
+                <div class="pt-3 border-t border-slate-200">
+                    <div id="detail-whatsapp-buttons" class="space-y-3">
                         <!-- WhatsApp confirmation buttons injected here -->
                     </div>
                 </div>
