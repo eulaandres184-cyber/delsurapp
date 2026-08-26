@@ -266,7 +266,7 @@
                     const locationName = getEventLocationName(evt);
 
                     return `
-                        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 hover:shadow-md transition-shadow flex flex-col justify-between space-y-3">
+                        <div class="min-w-0 bg-white rounded-2xl p-4 shadow-sm border border-slate-200 hover:shadow-md transition-shadow flex flex-col justify-between space-y-3">
                             <div>
                                 <div class="flex items-center justify-between mb-2">
                                     <span class="text-[10px] font-bold tracking-wider uppercase bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full border border-slate-200">
@@ -276,7 +276,7 @@
 
                                 <!-- Highlighted Title Box -->
                                 <div class="bg-slate-800 text-white p-3 rounded-xl shadow-inner border border-slate-700 mb-3 text-center">
-                                    <h3 class="text-lg font-extrabold tracking-tight">${evt.title}</h3>
+                                    <h3 class="text-lg font-extrabold tracking-tight break-words">${evt.title}</h3>
                                 </div>
 
                                 <div class="space-y-1.5 text-xs text-slate-600">
