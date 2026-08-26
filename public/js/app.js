@@ -478,11 +478,11 @@
                         <div class="grid grid-cols-1 gap-2">
                             <div>
                                 <div class="flex items-center justify-between mb-0.5">
-                                    <label class="text-[10px] font-semibold text-slate-600">☀️ Almuerzo (opcional)</label>
+                                    <label class="text-[16px] font-semibold text-slate-600">☀️ Almuerzo (opcional)</label>
                                     <div class="flex items-center gap-1">
-                                        <span class="text-[10px] text-slate-500 font-medium">Hora:</span>
-                                        <input type="time" id="day-lunch-time-${i}" value="${dayData.lunchTime || '12:00'}" class="bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
-                                        <input type="text" id="day-lunch-cost-${i}" value="${dayData.lunchCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo del almuerzo" class="day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <span class="text-[14px] text-slate-500 font-medium">Hora:</span>
+                                        <input type="time" id="day-lunch-time-${i}" value="${dayData.lunchTime || '12:00'}" class="bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[14px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <input type="text" id="day-lunch-cost-${i}" value="${dayData.lunchCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo del almuerzo" class="day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[14px] text-slate-800 focus:outline-none focus:border-slate-800">
                                     </div>
                                 </div>
                                 <select id="day-lunch-menu-${i}" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800">
@@ -496,9 +496,9 @@
                             </div>
                             <div>
                                 <div class="flex items-center justify-between mb-0.5">
-                                    <label class="text-[10px] font-semibold text-slate-600">🌙 Cena (opcional)</label>
+                                    <label class="text-[16px] font-semibold text-slate-600">🌙 Cena (opcional)</label>
                                     <div class="flex items-center gap-1">
-                                        <span class="text-[10px] text-slate-500 font-medium">Hora:</span>
+                                        <span class="text-[14px] text-slate-500 font-medium">Hora:</span>
                                         <input type="time" id="day-dinner-time-${i}" value="${dayData.dinnerTime || '21:30'}" class="bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
                                         <input type="text" id="day-dinner-cost-${i}" value="${dayData.dinnerCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo de la cena" class="day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
                                     </div>
