@@ -1,6 +1,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
         import { firebaseConfig, firebaseCollectionPath } from './firebase-config.js';
         import {
             formatCurrency,
@@ -17,6 +18,8 @@
         import { googleMapsApiKey } from './google-maps-config.js';
 
         let eventsCollection = null;
+        let storage = null;
+        let authReadyPromise = null;
         let googleMapsPromise = null;
 
         function loadGoogleMaps() {
@@ -43,13 +46,33 @@
             return googleMapsPromise;
         }
 
-        function readFileAsDataUrl(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve({ name: file.name, type: file.type, src: reader.result });
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
+        function fileExtension(name, type) {
+            const extension = name?.split('.').pop()?.toLowerCase();
+            if (extension && extension !== name.toLowerCase()) return extension;
+            return type === 'application/pdf' ? 'pdf' : 'jpg';
+        }
+
+        async function uploadMenuFile(file, eventId, dayIndex, meal) {
+            if (!storage || !file) return null;
+            await authReadyPromise;
+            const extension = fileExtension(file.name, file.type);
+            const storagePath = `menus/${eventId}/dia-${dayIndex + 1}-${meal}.${extension}`;
+            const fileRef = ref(storage, storagePath);
+            await uploadBytes(fileRef, file, { contentType: file.type || 'application/octet-stream' });
+            return {
+                name: file.name,
+                type: file.type || 'application/octet-stream',
+                src: await getDownloadURL(fileRef),
+                storagePath
+            };
+        }
+
+        async function migrateLegacyMenu(menu, eventId, dayIndex, meal) {
+            if (!menu?.src?.startsWith('data:')) return menu;
+            const response = await fetch(menu.src);
+            const blob = await response.blob();
+            const file = new File([blob], menu.name || `menu-${meal}.${fileExtension(menu.name, menu.type)}`, { type: menu.type || blob.type });
+            return uploadMenuFile(file, eventId, dayIndex, meal);
         }
 
         function renderMenuContent(menu, fallbackText, label) {
@@ -698,6 +721,7 @@
                         const firebaseApp = initializeApp(firebaseConfig);
                         const auth = getAuth(firebaseApp);
                         const db = getFirestore(firebaseApp);
+                        storage = getStorage(firebaseApp);
                         eventsCollection = collection(db, ...firebaseCollectionPath);
                         onSnapshot(eventsCollection, (snapshot) => {
                             const remoteEvents = [];
@@ -713,8 +737,9 @@
                         }, (error) => {
                             console.warn('Firestore fallback to local:', error);
                         });
-                        signInAnonymously(auth).catch((error) => {
+                        authReadyPromise = signInAnonymously(auth).catch((error) => {
                             console.warn('Anonymous auth unavailable; read-only mode:', error);
+                            return null;
                         });
                     } else {
                         console.info('Firestore no configurado: se usará almacenamiento local.');
@@ -789,12 +814,13 @@
                 const existingEvent = window.state.events.find(event => event.id === id);
 
                 const days = [];
-                for (let i = 0; i < daysCount; i++) {
+                try {
+                    for (let i = 0; i < daysCount; i++) {
                     const existingDay = existingEvent?.days?.[i] || {};
                     const readMenu = async (meal) => {
                         const fileInput = document.getElementById(`day-${meal}-file-${i}`);
                         const selectedPath = document.getElementById(`day-${meal}-menu-${i}`)?.value;
-                        if (fileInput?.files?.[0]) return readFileAsDataUrl(fileInput.files[0]);
+                        if (fileInput?.files?.[0]) return uploadMenuFile(fileInput.files[0], id, i, meal);
                         if (selectedPath) {
                             return {
                                 name: selectedPath.split('/').pop(),
@@ -802,11 +828,11 @@
                                 src: selectedPath
                             };
                         }
-                        return existingDay[`${meal}Menu`] || null;
+                        return migrateLegacyMenu(existingDay[`${meal}Menu`], id, i, meal);
                     };
-                    const lunchMenu = await readMenu('lunch');
-                    const dinnerMenu = await readMenu('dinner');
-                    days.push({
+                        const lunchMenu = await readMenu('lunch');
+                        const dinnerMenu = await readMenu('dinner');
+                        days.push({
                         date: document.getElementById(`day-date-${i}`)?.value || '',
                         lunch: lunchMenu ? '' : (existingDay.lunch || ''),
                         lunchMenu,
@@ -816,7 +842,15 @@
                         dinnerMenu,
                         dinnerTime: document.getElementById(`day-dinner-time-${i}`)?.value || '',
                         dinnerCost: document.getElementById(`day-dinner-cost-${i}`)?.value || ''
-                    });
+                        });
+                    }
+                } catch (error) {
+                    if (saveButton) {
+                        saveButton.disabled = false;
+                        saveButton.textContent = originalButtonText;
+                    }
+                    window.ui.showAlert('No se pudo cargar el menú', 'Verifique su conexión, el formato del archivo y que pese menos de 10 MB. El evento no fue guardado.');
+                    return;
                 }
 
                 const contactRows = document.querySelectorAll('.contact-row');
