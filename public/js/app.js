@@ -574,18 +574,18 @@
                     const lunchPast = isMomentPast(day.date, day.lunchTime);
                     const dinnerPast = isMomentPast(day.date, day.dinnerTime);
                     return `
-                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                        <div class="flex items-center justify-between border-b border-slate-200 pb-1">
-                            <span class="font-bold text-xs text-slate-800">Día ${idx + 1}</span>
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                            <span class="font-bold text-sm text-slate-800">Día ${idx + 1}</span>
                         </div>
                         ${day.lunch || day.lunchMenu?.src ? `
-                            <div class="text-xs ${lunchPast ? 'opacity-40' : ''}">
+                            <div class="text-sm ${lunchPast ? 'opacity-40' : ''}">
                                 <label class="font-bold text-amber-700 block mb-0.5 ${lunchPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Almuerzo" ${lunchPast ? 'disabled' : ''}>☀️ Almuerzo${lunchTimeLabel}${day.lunchCost ? ` - ${formatCurrency(day.lunchCost)}` : ''}${lunchPast ? ' (finalizado)' : ''}</label>
                                 ${renderMenuContent(day.lunchMenu, day.lunch, 'Almuerzo')}
                             </div>
                         ` : ''}
                         ${day.dinner || day.dinnerMenu?.src ? `
-                            <div class="text-xs ${dinnerPast ? 'opacity-40' : ''}">
+                            <div class="border-t border-slate-200 pt-3 text-sm ${dinnerPast ? 'opacity-40' : ''}">
                                 <label class="font-bold text-indigo-700 block mb-0.5 ${dinnerPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Cena" ${dinnerPast ? 'disabled' : ''}>🌙 Cena${dinnerTimeLabel}${day.dinnerCost ? ` - ${formatCurrency(day.dinnerCost)}` : ''}${dinnerPast ? ' (finalizado)' : ''}</label>
                                 ${renderMenuContent(day.dinnerMenu, day.dinner, 'Cena')}
                             </div>
@@ -767,12 +767,17 @@
 
             saveEvent: async (e) => {
                 e.preventDefault();
-
                 const id = document.getElementById('form-event-id').value || 'evt_' + Date.now();
                 const title = document.getElementById('form-title').value.trim();
                 if (!title) {
                     window.ui.showAlert('Datos incompletos', 'Ingrese el nombre del evento.');
                     return;
+                }
+                const saveButton = e.submitter || document.querySelector('#event-form button[type="submit"]');
+                const originalButtonText = saveButton?.textContent;
+                if (saveButton) {
+                    saveButton.disabled = true;
+                    saveButton.textContent = 'Guardando...';
                 }
                 const type = document.getElementById('form-type').value;
                 const daysCount = parseInt(document.getElementById('form-days-count').value, 10);
@@ -852,11 +857,15 @@
                 window.ui.closeEventModal();
                 window.ui.renderPublicEvents();
                 if (window.state.isAdmin) window.ui.renderAdminList();
+                if (saveButton) {
+                    saveButton.disabled = false;
+                    saveButton.textContent = originalButtonText;
+                }
                 window.ui.showAlert(
-                    savedToFirestore ? 'Éxito' : 'Guardado local',
+                    savedToFirestore ? 'Evento guardado' : 'Evento guardado localmente',
                     savedToFirestore
-                        ? 'El evento ha sido guardado en Firebase.'
-                        : 'El evento se guardó en este dispositivo. Habilite el acceso anónimo de Firebase para sincronizarlo en la nube.'
+                        ? 'El evento se guardó correctamente y quedó sincronizado en Firebase.'
+                        : 'El evento se guardó correctamente en este dispositivo. Se sincronizará cuando Firebase esté disponible.'
                 );
             },
 

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Del Sur Eventos - Servicio de Catering</title>
+    <link rel="icon" type="image/png" href="./img/menu.png">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -302,16 +303,16 @@
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
                 <span id="detail-type-badge" class="text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-amber-400 border border-slate-700 px-2 py-0.5 rounded-md inline-block mb-1">TIPO</span>
-                <h3 id="detail-title" class="text-xl font-extrabold leading-tight tracking-tight">Nombre del Evento</h3>
+                <h3 id="detail-title" class="pr-8 text-xl font-extrabold leading-tight tracking-tight">Nombre del Evento</h3>
             </div>
 
             <!-- Content Area -->
-            <div class="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+            <div class="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-5">
                 
                 <!-- Location Link Card -->
-                <div id="detail-location-card" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex items-center justify-between">
-                    <div class="flex items-center gap-2.5 overflow-hidden">
-                        <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+                <div id="detail-location-card" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+                        <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
                             <i class="fa-solid fa-location-dot"></i>
                         </div>
                         <div class="truncate">
@@ -319,7 +320,7 @@
                             <p id="detail-location-name" class="text-xs font-bold text-slate-800 truncate">Lugar no especificado</p>
                         </div>
                     </div>
-                    <a id="detail-location-link" href="#" target="_blank" class="hidden text-xs bg-slate-900 text-white px-3 py-1.5 rounded-xl font-medium hover:bg-slate-800 whitespace-nowrap">
+                    <a id="detail-location-link" href="#" target="_blank" class="hidden ml-auto shrink-0 text-sm bg-slate-900 text-white px-3.5 py-2 rounded-xl font-medium hover:bg-slate-800 whitespace-nowrap">
                         Ver Mapa <i class="fa-solid fa-arrow-up-right-from-square ml-1 text-[10px]"></i>
                     </a>
                 </div>
