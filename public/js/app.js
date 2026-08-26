@@ -824,39 +824,42 @@
                 const locationUrl = document.getElementById('form-location-url').value;
                 const existingEvent = window.state.events.find(event => event.id === id);
 
-                const days = [];
+                let days = [];
                 try {
+                    // Process all days/meals concurrently instead of one await at a time.
+                    const dayPromises = [];
                     for (let i = 0; i < daysCount; i++) {
-                    const existingDay = existingEvent?.days?.[i] || {};
-                    const readMenu = async (meal) => {
-                        const fileInput = document.getElementById(`day-${meal}-file-${i}`);
-                        const selectedPath = document.getElementById(`day-${meal}-menu-${i}`)?.value;
-                        if (fileInput?.files?.[0]) return uploadMenuFile(fileInput.files[0], id, i, meal);
-                        if (selectedPath) {
-                            return {
-                                name: selectedPath.split('/').pop(),
-                                type: selectedPath.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/*',
-                                src: selectedPath
-                            };
-                        }
-                        return migrateLegacyMenu(existingDay[`${meal}Menu`], id, i, meal);
-                    };
-                        const lunchMenu = await readMenu('lunch');
-                        const dinnerMenu = await readMenu('dinner');
-                        days.push({
-                        date: document.getElementById(`day-date-${i}`)?.value || '',
-                        lunch: lunchMenu ? '' : (existingDay.lunch || ''),
-                        lunchMenu,
-                        lunchDetail: document.getElementById(`day-lunch-detail-${i}`)?.value.trim() || '',
-                        lunchTime: document.getElementById(`day-lunch-time-${i}`)?.value || '',
-                        lunchCost: document.getElementById(`day-lunch-cost-${i}`)?.value || '',
-                        dinner: dinnerMenu ? '' : (existingDay.dinner || ''),
-                        dinnerMenu,
-                        dinnerDetail: document.getElementById(`day-dinner-detail-${i}`)?.value.trim() || '',
-                        dinnerTime: document.getElementById(`day-dinner-time-${i}`)?.value || '',
-                        dinnerCost: document.getElementById(`day-dinner-cost-${i}`)?.value || ''
-                        });
+                        const existingDay = existingEvent?.days?.[i] || {};
+                        const readMenu = async (meal) => {
+                            const fileInput = document.getElementById(`day-${meal}-file-${i}`);
+                            const selectedPath = document.getElementById(`day-${meal}-menu-${i}`)?.value;
+                            if (fileInput?.files?.[0]) return uploadMenuFile(fileInput.files[0], id, i, meal);
+                            if (selectedPath) {
+                                return {
+                                    name: selectedPath.split('/').pop(),
+                                    type: selectedPath.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/*',
+                                    src: selectedPath
+                                };
+                            }
+                            return migrateLegacyMenu(existingDay[`${meal}Menu`], id, i, meal);
+                        };
+                        dayPromises.push(
+                            Promise.all([readMenu('lunch'), readMenu('dinner')]).then(([lunchMenu, dinnerMenu]) => ({
+                                date: document.getElementById(`day-date-${i}`)?.value || '',
+                                lunch: lunchMenu ? '' : (existingDay.lunch || ''),
+                                lunchMenu,
+                                lunchDetail: document.getElementById(`day-lunch-detail-${i}`)?.value.trim() || '',
+                                lunchTime: document.getElementById(`day-lunch-time-${i}`)?.value || '',
+                                lunchCost: document.getElementById(`day-lunch-cost-${i}`)?.value || '',
+                                dinner: dinnerMenu ? '' : (existingDay.dinner || ''),
+                                dinnerMenu,
+                                dinnerDetail: document.getElementById(`day-dinner-detail-${i}`)?.value.trim() || '',
+                                dinnerTime: document.getElementById(`day-dinner-time-${i}`)?.value || '',
+                                dinnerCost: document.getElementById(`day-dinner-cost-${i}`)?.value || ''
+                            }))
+                        );
                     }
+                    days = await Promise.all(dayPromises);
                 } catch (error) {
                     if (saveButton) {
                         saveButton.disabled = false;
@@ -891,16 +894,7 @@
 
                 localStorage.setItem('catering_events_v2', JSON.stringify(window.state.events));
 
-                let savedToFirestore = false;
-                try {
-                    if (eventsCollection) {
-                        await setDoc(doc(eventsCollection, id), newEvent);
-                        savedToFirestore = true;
-                    }
-                } catch (e) {
-                    console.warn('Firestore write warning:', e);
-                }
-
+                // Confirm immediately with the local save; Firestore sync continues in the background.
                 window.ui.closeEventModal();
                 window.ui.renderPublicEvents();
                 if (window.state.isAdmin) window.ui.renderAdminList();
@@ -908,12 +902,16 @@
                     saveButton.disabled = false;
                     saveButton.textContent = originalButtonText;
                 }
-                window.ui.showAlert(
-                    savedToFirestore ? 'Evento guardado' : 'Evento guardado localmente',
-                    savedToFirestore
-                        ? 'El evento se guardó correctamente y quedó sincronizado en Firebase.'
-                        : 'El evento se guardó correctamente en este dispositivo. Se sincronizará cuando Firebase esté disponible.'
-                );
+                window.ui.showAlert('Evento guardado', 'El evento se guardó correctamente en este dispositivo. Sincronizando con Firebase…');
+
+                try {
+                    if (eventsCollection) {
+                        await setDoc(doc(eventsCollection, id), newEvent);
+                    }
+                } catch (e) {
+                    console.warn('Firestore write warning:', e);
+                    window.ui.showAlert('Sincronización pendiente', 'El evento quedó guardado en este dispositivo, pero no se pudo sincronizar con Firebase todavía.');
+                }
             },
 
             deleteEvent: async (id) => {
