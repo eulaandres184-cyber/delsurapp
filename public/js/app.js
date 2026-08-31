@@ -1,6 +1,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
         import { firebaseConfig, firebaseCollectionPath } from './firebase-config.js';
         import {
             formatCurrency,
@@ -17,7 +18,11 @@
         import { googleMapsApiKey } from './google-maps-config.js';
 
         let eventsCollection = null;
+        let storage = null;
+        let authReadyPromise = null;
         let googleMapsPromise = null;
+        // Centralized contact used by the floating button and event fallback.
+        const adminWhatsAppPhone = '5491112345678';
 
         function loadGoogleMaps() {
             if (window.google?.maps) return Promise.resolve(window.google.maps);
@@ -41,6 +46,65 @@
                 document.head.appendChild(script);
             });
             return googleMapsPromise;
+        }
+
+        function fileExtension(name, type) {
+            const extension = name?.split('.').pop()?.toLowerCase();
+            if (extension && extension !== name.toLowerCase()) return extension;
+            return type === 'application/pdf' ? 'pdf' : 'jpg';
+        }
+
+        async function uploadMenuFile(file, eventId, dayIndex, meal) {
+            if (!storage || !file) return null;
+            await authReadyPromise;
+            const extension = fileExtension(file.name, file.type);
+            const storagePath = `menus/${eventId}/dia-${dayIndex + 1}-${meal}.${extension}`;
+            const fileRef = ref(storage, storagePath);
+            await uploadBytes(fileRef, file, { contentType: file.type || 'application/octet-stream' });
+            return {
+                name: file.name,
+                type: file.type || 'application/octet-stream',
+                src: await getDownloadURL(fileRef),
+                storagePath
+            };
+        }
+
+        async function migrateLegacyMenu(menu, eventId, dayIndex, meal) {
+            if (!menu?.src?.startsWith('data:')) return menu;
+            const response = await fetch(menu.src);
+            const blob = await response.blob();
+            const file = new File([blob], menu.name || `menu-${meal}.${fileExtension(menu.name, menu.type)}`, { type: menu.type || blob.type });
+            return uploadMenuFile(file, eventId, dayIndex, meal);
+        }
+
+        function renderMenuContent(menu, fallbackText, label, detail = '') {
+            const detailContent = detail.trim()
+                ? `<p class="mt-2 text-sm text-slate-700 whitespace-pre-line bg-white p-3 rounded-xl border border-slate-200/60">${detail}</p>`
+                : '';
+            if (!menu?.src) {
+                return fallbackText
+                    ? `<p class="text-slate-700 whitespace-pre-line bg-white p-3 rounded-xl border border-slate-200/60">${fallbackText}</p>${detailContent}`
+                    : `${detailContent || `<p class="text-[11px] text-slate-400 italic">${label} por definir</p>`}`;
+            }
+
+            if (menu.type === 'application/pdf' || menu.src.toLowerCase().includes('.pdf')) {
+                return `<iframe src="${menu.src}" title="${label}" class="w-full h-80 rounded-xl border border-slate-200 bg-white"></iframe><a href="${menu.src}" target="_blank" class="mt-1 inline-block text-[11px] font-semibold text-slate-600 underline">Abrir PDF</a>${detailContent}`;
+            }
+
+            return `<img src="${menu.src}" alt="${label}" class="w-full max-h-[28rem] object-contain rounded-xl border border-slate-200 bg-white">${detailContent}`;
+        }
+
+        async function geocode(request) {
+            await loadGoogleMaps();
+            try {
+                return await new google.maps.Geocoder().geocode(request);
+            } catch (error) {
+                const message = String(error?.message || error || '');
+                if (message.includes('REQUEST_DENIED') || message.includes('not allowed to use the geocoder')) {
+                    throw new Error('La clave de Google Maps no tiene habilitado Geocoding API o el dominio actual no está autorizado.');
+                }
+                throw error;
+            }
         }
 
         // APP STATE
@@ -192,14 +256,28 @@
                 : event?.locationName || 'Ubicación a confirmar';
         }
 
+        function getEventTypeLabel(type) {
+            const emojis = {
+                Corporativo: '💼',
+                Boda: '💍',
+                Cumpleaños: '🎈',
+                Retiro: '🌿',
+                Privado: '🏠',
+                Otro: '🎉'
+            };
+            const eventType = type || 'Evento';
+            return `${emojis[eventType] || '🎉'} ${eventType}`;
+        }
+
         async function hydrateLocationNames(events) {
             const pending = events.filter(event => isNumericLocationName(event.locationName) && event.locationUrl);
             await Promise.all(pending.map(async event => {
                 const coordinates = getMapCoordinates(event.locationUrl);
                 if (!coordinates) return;
                 try {
-                    const results = await geocode({ location: coordinates });
-                    const name = getLocationName({ display_name: results[0]?.formatted_address });
+                            await loadGoogleMaps();
+                            const result = await new google.maps.Geocoder().geocode({ location: coordinates });
+                            const name = getLocationName({ display_name: result.results?.[0]?.formatted_address });
                     if (name) event.locationName = name;
                 } catch (error) {
                     console.warn('No se pudo actualizar el nombre del lugar:', error.message);
@@ -257,18 +335,19 @@
                     const dateText = formatEventDateLabel(evt.days);
                     const locationName = getEventLocationName(evt);
 
+                    // Each meal owns its checkbox so attendance can be selected independently.
                     return `
-                        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 hover:shadow-md transition-shadow flex flex-col justify-between space-y-3">
+                        <div class="min-w-0 bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow flex flex-col justify-between space-y-4">
                             <div>
                                 <div class="flex items-center justify-between mb-2">
                                     <span class="text-[10px] font-bold tracking-wider uppercase bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full border border-slate-200">
-                                        ${evt.type || 'Evento'}
+                                        ${getEventTypeLabel(evt.type)}
                                     </span>
                                 </div>
 
                                 <!-- Highlighted Title Box -->
                                 <div class="bg-slate-800 text-white p-3 rounded-xl shadow-inner border border-slate-700 mb-3 text-center">
-                                    <h3 class="text-lg font-extrabold tracking-tight">${evt.title}</h3>
+                                    <h3 class="text-xl font-extrabold tracking-tight break-words">${evt.title}</h3>
                                 </div>
 
                                 <div class="space-y-1.5 text-xs text-slate-600">
@@ -327,16 +406,16 @@
                     const dateText = formatEventDateLabel(evt.days);
 
                     return `
-                        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-3">
-                            <div class="overflow-hidden">
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-4">
+                            <div class="min-w-0 overflow-hidden">
                                 <div class="flex items-center gap-2 mb-1">
-                                    <span class="text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
-                                        ${evt.type || 'Evento'}
+                                    <span class="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
+                                        ${getEventTypeLabel(evt.type)}
                                     </span>
                                     ${expired ? `<span class="text-[9px] font-bold uppercase bg-rose-100 text-rose-700 px-2 py-0.5 rounded-md">Caducado</span>` : `<span class="text-[9px] font-bold uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md">Activo</span>`}
                                 </div>
-                                <h4 class="font-bold text-sm text-slate-900 truncate">${evt.title}</h4>
-                                <p class="text-[11px] text-slate-500">${dateText}</p>
+                                <h4 class="font-bold text-base text-slate-900 truncate">${evt.title}</h4>
+                                <p class="text-xs text-slate-500">${dateText}</p>
                             </div>
                             <div class="flex items-center gap-1.5 flex-shrink-0">
                                 <button onclick="window.ui.editEvent('${evt.id}')" class="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center justify-center text-xs">
@@ -418,29 +497,55 @@
                         <div class="grid grid-cols-1 gap-2">
                             <div>
                                 <div class="flex items-center justify-between mb-0.5">
-                                    <label class="text-[10px] font-semibold text-slate-600">☀️ Almuerzo (opcional)</label>
+                                    <label class="text-[16px] font-semibold text-slate-600">☀️ Almuerzo (opcional)</label>
                                     <div class="flex items-center gap-1">
-                                        <span class="text-[10px] text-slate-500 font-medium">Hora:</span>
-                                        <input type="time" id="day-lunch-time-${i}" value="${dayData.lunchTime || '12:00'}" class="bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
-                                        <input type="text" id="day-lunch-cost-${i}" value="${dayData.lunchCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo del almuerzo" class="day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <span class="text-[14px] text-slate-500 font-medium">Hora:</span>
+                                        <input type="time" id="day-lunch-time-${i}" value="${dayData.lunchTime || '12:00'}" class="bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[14px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <input type="text" id="day-lunch-cost-${i}" value="${dayData.lunchCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo del almuerzo" class="day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[14px] text-slate-800 focus:outline-none focus:border-slate-800">
                                     </div>
                                 </div>
-                                <textarea id="day-lunch-${i}" rows="2" placeholder="Ej. Entrada: Empanadas 🥟&#10;Principal: Asado completo 🥩" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.lunch || ''}</textarea>
+                                <select id="day-lunch-menu-${i}" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800">
+                                    <option value="">Seleccionar imagen o PDF del menú</option>
+                                    <option value="./img/menu.png">menu.png</option>
+                                    <option value="./img/menu.pdf">menu.pdf</option>
+                                </select>
+                                <input type="file" id="day-lunch-file-${i}" accept="image/*,.pdf,application/pdf" class="w-full mt-1 text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-800 file:px-2 file:py-1 file:text-[11px] file:font-semibold file:text-white">
+                                <p id="day-lunch-file-name-${i}" class="text-[10px] text-slate-500 truncate"></p>
+                                <textarea id="day-lunch-detail-${i}" rows="2" placeholder="Detalle del menú de almuerzo (opcional)" class="w-full mt-1 bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.lunchDetail || ''}</textarea>
                             </div>
                             <div>
                                 <div class="flex items-center justify-between mb-0.5">
-                                    <label class="text-[10px] font-semibold text-slate-600">🌙 Cena (opcional)</label>
+                                    <label class="text-[16px] font-semibold text-slate-600">🌙 Cena (opcional)</label>
                                     <div class="flex items-center gap-1">
-                                        <span class="text-[10px] text-slate-500 font-medium">Hora:</span>
+                                        <span class="text-[14px] text-slate-500 font-medium">Hora:</span>
                                         <input type="time" id="day-dinner-time-${i}" value="${dayData.dinnerTime || '21:30'}" class="bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
                                         <input type="text" id="day-dinner-cost-${i}" value="${dayData.dinnerCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo de la cena" class="day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
                                     </div>
                                 </div>
-                                <textarea id="day-dinner-${i}" rows="2" placeholder="Ej. Cazuela de mariscos 🥘&#10;Postre: Volcán de chocolate 🍰" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.dinner || ''}</textarea>
+                                <select id="day-dinner-menu-${i}" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800">
+                                    <option value="">Seleccionar imagen o PDF del menú</option>
+                                    <option value="./img/menu.png">menu.png</option>
+                                    <option value="./img/menu.pdf">menu.pdf</option>
+                                </select>
+                                <input type="file" id="day-dinner-file-${i}" accept="image/*,.pdf,application/pdf" class="w-full mt-1 text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-800 file:px-2 file:py-1 file:text-[11px] file:font-semibold file:text-white">
+                                <p id="day-dinner-file-name-${i}" class="text-[10px] text-slate-500 truncate"></p>
+                                <textarea id="day-dinner-detail-${i}" rows="2" placeholder="Detalle del menú de cena (opcional)" class="w-full mt-1 bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.dinnerDetail || ''}</textarea>
                             </div>
                         </div>
                     `;
                     container.appendChild(dayDiv);
+                    ['lunch', 'dinner'].forEach((meal) => {
+                        const menu = dayData[`${meal}Menu`];
+                        const select = dayDiv.querySelector(`#day-${meal}-menu-${i}`);
+                        const fileInput = dayDiv.querySelector(`#day-${meal}-file-${i}`);
+                        const fileName = dayDiv.querySelector(`#day-${meal}-file-name-${i}`);
+                        if (menu?.src && !menu.src.startsWith('data:')) select.value = menu.src;
+                        if (menu?.name) fileName.textContent = `Archivo actual: ${menu.name}`;
+                        fileInput.addEventListener('change', () => {
+                            fileName.textContent = fileInput.files[0]?.name || '';
+                            if (fileInput.files[0]) select.value = '';
+                        });
+                    });
                     dayDiv.querySelectorAll('.day-cost-input').forEach((input) => {
                         input.addEventListener('input', (event) => {
                             event.target.value = event.target.value.replace(/\D/g, '');
@@ -494,7 +599,7 @@
                 const evt = window.state.events.find(e => e.id === eventId);
                 if (!evt) return;
 
-                document.getElementById('detail-type-badge').textContent = evt.type || 'EVENTO';
+                document.getElementById('detail-type-badge').textContent = getEventTypeLabel(evt.type);
                 document.getElementById('detail-title').textContent = evt.title;
 
                 const locName = document.getElementById('detail-location-name');
@@ -521,30 +626,31 @@
                     const lunchPast = isMomentPast(day.date, day.lunchTime);
                     const dinnerPast = isMomentPast(day.date, day.dinnerTime);
                     return `
-                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                        <div class="flex items-center justify-between border-b border-slate-200 pb-1">
-                            <span class="font-bold text-xs text-slate-800">Día ${idx + 1}</span>
+                    <div class="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                            <span class="font-bold text-base text-slate-800">Día ${idx + 1}</span>
                         </div>
-                        ${day.lunch ? `
-                            <div class="text-xs ${lunchPast ? 'opacity-40' : ''}">
-                                <label class="font-bold text-amber-700 block mb-0.5 ${lunchPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Almuerzo" ${lunchPast ? 'disabled' : ''}>☀️ Almuerzo${lunchTimeLabel}${day.lunchCost ? ` - ${formatCurrency(day.lunchCost)}` : ''}${lunchPast ? ' (finalizado)' : ''}</label>
-                                <p class="text-slate-700 whitespace-pre-line bg-white p-2 rounded-xl border border-slate-200/60">${day.lunch}</p>
+                        ${day.lunch || day.lunchMenu?.src ? `
+                            <div class="text-sm ${lunchPast ? 'opacity-40' : ''}">
+                                <label class="flex items-center gap-3 font-extrabold text-amber-700 mb-1 ${lunchPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option h-5 w-5 shrink-0" data-day="${idx + 1}" data-meal="Almuerzo" ${lunchPast ? 'disabled' : ''}><span>☀️ Almuerzo${lunchTimeLabel}${day.lunchCost ? ` - ${formatCurrency(day.lunchCost)}` : ''}${lunchPast ? ' (finalizado)' : ''}</span></label>
+                                ${renderMenuContent(day.lunchMenu, day.lunch, 'Almuerzo', day.lunchDetail || '')}
                             </div>
                         ` : ''}
-                        ${day.dinner ? `
-                            <div class="text-xs ${dinnerPast ? 'opacity-40' : ''}">
-                                <label class="font-bold text-indigo-700 block mb-0.5 ${dinnerPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option mr-1" data-day="${idx + 1}" data-meal="Cena" ${dinnerPast ? 'disabled' : ''}>🌙 Cena${dinnerTimeLabel}${day.dinnerCost ? ` - ${formatCurrency(day.dinnerCost)}` : ''}${dinnerPast ? ' (finalizado)' : ''}</label>
-                                <p class="text-slate-700 whitespace-pre-line bg-white p-2 rounded-xl border border-slate-200/60">${day.dinner}</p>
+                        ${day.dinner || day.dinnerMenu?.src ? `
+                            <div class="border-t border-slate-200 pt-3 text-sm ${dinnerPast ? 'opacity-40' : ''}">
+                                <label class="flex items-center gap-3 font-extrabold text-indigo-700 mb-1 ${dinnerPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option h-5 w-5 shrink-0" data-day="${idx + 1}" data-meal="Cena" ${dinnerPast ? 'disabled' : ''}><span>🌙 Cena${dinnerTimeLabel}${day.dinnerCost ? ` - ${formatCurrency(day.dinnerCost)}` : ''}${dinnerPast ? ' (finalizado)' : ''}</span></label>
+                                ${renderMenuContent(day.dinnerMenu, day.dinner, 'Cena', day.dinnerDetail || '')}
                             </div>
                         ` : ''}
-                        ${!day.lunch && !day.dinner ? `<p class="text-[11px] text-slate-400 italic">Menú por definir</p>` : ''}
+                        ${!day.lunch && !day.lunchMenu?.src && !day.dinner && !day.dinnerMenu?.src ? `<p class="text-[11px] text-slate-400 italic">Menú por definir</p>` : ''}
                     </div>
                 `}).join('');
 
                 // Render WhatsApp Confirmation Buttons
                 const waContainer = document.getElementById('detail-whatsapp-buttons');
-                const contacts = evt.contacts && evt.contacts.length ? evt.contacts : [{ name: 'Organizador', phone: '5491112345678' }];
+                    const contacts = evt.contacts && evt.contacts.length ? evt.contacts : [{ name: 'Administración', phone: adminWhatsAppPhone }];
 
+                // Rebuild the WhatsApp links whenever a meal selection changes.
                 const renderWhatsAppButtons = () => {
                     const selectedOptions = [...document.querySelectorAll('.confirmation-option:checked')]
                         .map(option => `Día ${option.dataset.day} - ${option.dataset.meal}`);
@@ -555,7 +661,7 @@
                     const waUrl = `https://wa.me/${cleanPhone}?text=${message}`;
 
                     return `
-                        <a href="${waUrl}" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
+                        <a href="${waUrl}" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
                             <i class="fa-brands fa-whatsapp text-sm"></i> Confirmar con ${c.name || 'Contacto'}
                         </a>
                     `;
@@ -645,7 +751,7 @@
                         const firebaseApp = initializeApp(firebaseConfig);
                         const auth = getAuth(firebaseApp);
                         const db = getFirestore(firebaseApp);
-                        await signInAnonymously(auth);
+                        storage = getStorage(firebaseApp);
                         eventsCollection = collection(db, ...firebaseCollectionPath);
                         onSnapshot(eventsCollection, (snapshot) => {
                             const remoteEvents = [];
@@ -660,6 +766,10 @@
                             hydrateLocationNames(remoteEvents);
                         }, (error) => {
                             console.warn('Firestore fallback to local:', error);
+                        });
+                        authReadyPromise = signInAnonymously(auth).catch((error) => {
+                            console.warn('Anonymous auth unavailable; read-only mode:', error);
+                            return null;
                         });
                     } else {
                         console.info('Firestore no configurado: se usará almacenamiento local.');
@@ -712,12 +822,17 @@
 
             saveEvent: async (e) => {
                 e.preventDefault();
-
                 const id = document.getElementById('form-event-id').value || 'evt_' + Date.now();
                 const title = document.getElementById('form-title').value.trim();
                 if (!title) {
                     window.ui.showAlert('Datos incompletos', 'Ingrese el nombre del evento.');
                     return;
+                }
+                const saveButton = e.submitter || document.querySelector('#event-form button[type="submit"]');
+                const originalButtonText = saveButton?.textContent;
+                if (saveButton) {
+                    saveButton.disabled = true;
+                    saveButton.textContent = 'Guardando...';
                 }
                 const type = document.getElementById('form-type').value;
                 const daysCount = parseInt(document.getElementById('form-days-count').value, 10);
@@ -726,18 +841,51 @@
                     locationName = window.state.currentLocationName || 'Ubicación seleccionada';
                 }
                 const locationUrl = document.getElementById('form-location-url').value;
+                const existingEvent = window.state.events.find(event => event.id === id);
 
-                const days = [];
-                for (let i = 0; i < daysCount; i++) {
-                    days.push({
-                        date: document.getElementById(`day-date-${i}`)?.value || '',
-                        lunch: document.getElementById(`day-lunch-${i}`)?.value || '',
-                        lunchTime: document.getElementById(`day-lunch-time-${i}`)?.value || '',
-                        lunchCost: document.getElementById(`day-lunch-cost-${i}`)?.value || '',
-                        dinner: document.getElementById(`day-dinner-${i}`)?.value || '',
-                        dinnerTime: document.getElementById(`day-dinner-time-${i}`)?.value || '',
-                        dinnerCost: document.getElementById(`day-dinner-cost-${i}`)?.value || ''
-                    });
+                let days = [];
+                try {
+                    // Process all days/meals concurrently instead of one await at a time.
+                    const dayPromises = [];
+                    for (let i = 0; i < daysCount; i++) {
+                        const existingDay = existingEvent?.days?.[i] || {};
+                        const readMenu = async (meal) => {
+                            const fileInput = document.getElementById(`day-${meal}-file-${i}`);
+                            const selectedPath = document.getElementById(`day-${meal}-menu-${i}`)?.value;
+                            if (fileInput?.files?.[0]) return uploadMenuFile(fileInput.files[0], id, i, meal);
+                            if (selectedPath) {
+                                return {
+                                    name: selectedPath.split('/').pop(),
+                                    type: selectedPath.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/*',
+                                    src: selectedPath
+                                };
+                            }
+                            return migrateLegacyMenu(existingDay[`${meal}Menu`], id, i, meal);
+                        };
+                        dayPromises.push(
+                            Promise.all([readMenu('lunch'), readMenu('dinner')]).then(([lunchMenu, dinnerMenu]) => ({
+                                date: document.getElementById(`day-date-${i}`)?.value || '',
+                                lunch: lunchMenu ? '' : (existingDay.lunch || ''),
+                                lunchMenu,
+                                lunchDetail: document.getElementById(`day-lunch-detail-${i}`)?.value.trim() || '',
+                                lunchTime: document.getElementById(`day-lunch-time-${i}`)?.value || '',
+                                lunchCost: document.getElementById(`day-lunch-cost-${i}`)?.value || '',
+                                dinner: dinnerMenu ? '' : (existingDay.dinner || ''),
+                                dinnerMenu,
+                                dinnerDetail: document.getElementById(`day-dinner-detail-${i}`)?.value.trim() || '',
+                                dinnerTime: document.getElementById(`day-dinner-time-${i}`)?.value || '',
+                                dinnerCost: document.getElementById(`day-dinner-cost-${i}`)?.value || ''
+                            }))
+                        );
+                    }
+                    days = await Promise.all(dayPromises);
+                } catch (error) {
+                    if (saveButton) {
+                        saveButton.disabled = false;
+                        saveButton.textContent = originalButtonText;
+                    }
+                    window.ui.showAlert('No se pudo cargar el menú', 'Verifique su conexión, el formato del archivo y que pese menos de 10 MB. El evento no fue guardado.');
+                    return;
                 }
 
                 const contactRows = document.querySelectorAll('.contact-row');
@@ -765,25 +913,24 @@
 
                 localStorage.setItem('catering_events_v2', JSON.stringify(window.state.events));
 
-                let savedToFirestore = false;
-                try {
-                    if (eventsCollection) {
-                        await setDoc(doc(eventsCollection, id), newEvent);
-                        savedToFirestore = true;
-                    }
-                } catch (e) {
-                    console.warn('Firestore write warning:', e);
-                }
-
+                // Confirm immediately with the local save; Firestore sync continues in the background.
                 window.ui.closeEventModal();
                 window.ui.renderPublicEvents();
                 if (window.state.isAdmin) window.ui.renderAdminList();
-                window.ui.showAlert(
-                    savedToFirestore ? 'Éxito' : 'Guardado local',
-                    savedToFirestore
-                        ? 'El evento ha sido guardado en Firebase.'
-                        : 'El evento se guardó en este dispositivo. Habilite el acceso anónimo de Firebase para sincronizarlo en la nube.'
-                );
+                if (saveButton) {
+                    saveButton.disabled = false;
+                    saveButton.textContent = originalButtonText;
+                }
+                window.ui.showAlert('Evento guardado', 'El evento se guardó correctamente en este dispositivo. Sincronizando con Firebase…');
+
+                try {
+                    if (eventsCollection) {
+                        await setDoc(doc(eventsCollection, id), newEvent);
+                    }
+                } catch (e) {
+                    console.warn('Firestore write warning:', e);
+                    window.ui.showAlert('Sincronización pendiente', 'El evento quedó guardado en este dispositivo, pero no se pudo sincronizar con Firebase todavía.');
+                }
             },
 
             deleteEvent: async (id) => {
@@ -815,9 +962,9 @@
 
                 document.getElementById('map-selected-label').textContent = label || `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
 
-                geocode({ location: { lat, lng } })
-                    .then(results => {
-                        const name = results[0]?.formatted_address;
+                loadGoogleMaps().then(() => new google.maps.Geocoder().geocode({ location: { lat, lng } }))
+                    .then(result => {
+                        const name = result.results?.[0]?.formatted_address;
                         if (name) {
                             document.getElementById('map-selected-label').textContent = name;
                             window.state.currentLocationName = name;
@@ -831,9 +978,9 @@
                 const query = document.getElementById('map-search-input').value;
                 if (!query) return;
 
-                geocode({ address: query })
-                    .then(results => {
-                        const first = results[0];
+                loadGoogleMaps().then(() => new google.maps.Geocoder().geocode({ address: query }))
+                    .then(result => {
+                        const first = result.results?.[0];
                         if (first) {
                             const location = first.geometry.location;
                             const lat = location.lat();
@@ -869,7 +1016,7 @@
                 const url = getGoogleMapsUrl(lat, lng);
                 const nameInput = document.getElementById('form-location-name');
 
-                if (window.state.currentLocationName && !nameInput.value) {
+                if (window.state.currentLocationName) {
                     nameInput.value = window.state.currentLocationName;
                 }
 

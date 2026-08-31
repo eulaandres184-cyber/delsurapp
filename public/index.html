@@ -4,21 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Del Sur Eventos - Servicio de Catering</title>
+    <link rel="icon" type="image/jpeg" href="./img/logo.jpg">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="/js/tailwind-config.js"></script>
+    <script src="./js/tailwind-config.js"></script>
     
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <link rel="stylesheet" href="/css/styles.css">
-    <script type="module" src="/js/app.js?v=20260823-4"></script>
+    <link rel="stylesheet" href="./css/styles.css">
+    <script type="module" src="./js/app.js?v=20260826-1"></script>
 </head>
 <body class="h-full font-sans antialiased text-slate-800 bg-slate-100 flex flex-col min-h-screen">
 
     <!-- Header / Navbar -->
-    <header class="bg-slate-900 text-white sticky top-0 z-40 shadow-md border-b border-slate-800">
+    <header class="bg-slate-900 text-white sticky top-0 z-40 shrink-0 shadow-md border-b border-slate-800">
         <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
             <!-- Hidden admin access trigger -->
             <div class="flex items-center gap-2.5 select-none">
@@ -67,7 +68,7 @@
         </div>
     </div>
 
-    <main class="flex-1 max-w-md w-full mx-auto p-4 pb-12">
+    <main class="flex-1 max-w-md w-full min-w-0 mx-auto p-4 pb-12 overflow-x-hidden">
 
         <!-- PUBLIC EVENTS VIEW -->
         <section id="view-events" class="space-y-4">
@@ -80,7 +81,7 @@
             </div>
 
             <!-- Events Grid -->
-            <div id="public-events-grid" class="grid gap-4">
+            <div id="public-events-grid" class="grid min-w-0 gap-4">
                 <!-- Cards injected dynamically -->
             </div>
 
@@ -92,6 +93,16 @@
                 <h3 class="text-sm font-bold text-slate-800">No hay eventos disponibles</h3>
                 <p class="text-xs text-slate-500 mt-1">Actualmente no hay menús cargados para consultar.</p>
             </div>
+
+            <!-- Floating WhatsApp contact button for future event inquiries. -->
+            <a href="https://wa.me/5491112345678?text=Hola%2C%20quiero%20consultar%20por%20futuros%20eventos."
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Contactar a la administración por WhatsApp"
+                title="Contactar por WhatsApp"
+                class="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95">
+                <i class="fa-brands fa-whatsapp text-3xl"></i>
+            </a>
         </section>
 
         <!-- ADMIN PANEL VIEW -->
@@ -121,6 +132,7 @@
                             <option value="Boda">Boda</option>
                             <option value="Cumpleaños">Cumpleaños</option>
                             <option value="Retiro">Retiro</option>
+                            <option value="Privado">Privado</option>
                             <option value="Otro">Otro</option>
                         </select>
 
@@ -194,6 +206,7 @@
                             <option value="Boda">Boda</option>
                             <option value="Cumpleaños">Cumpleaños</option>
                             <option value="Retiro">Retiro</option>
+                            <option value="Privado">Privado</option>
                             <option value="Otro">Otro</option>
                         </select>
                     </div>
@@ -300,31 +313,15 @@
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
                 <span id="detail-type-badge" class="text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-amber-400 border border-slate-700 px-2 py-0.5 rounded-md inline-block mb-1">TIPO</span>
-                <h3 id="detail-title" class="text-xl font-extrabold leading-tight tracking-tight">Nombre del Evento</h3>
+                <h3 id="detail-title" class="pr-8 text-xl font-extrabold leading-tight tracking-tight">Nombre del Evento</h3>
             </div>
 
             <!-- Content Area -->
-            <div class="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
                 
-                <!-- Location Link Card -->
-                <div id="detail-location-card" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex items-center justify-between">
-                    <div class="flex items-center gap-2.5 overflow-hidden">
-                        <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
-                            <i class="fa-solid fa-location-dot"></i>
-                        </div>
-                        <div class="truncate">
-                            <p class="text-[10px] font-semibold text-slate-400 uppercase">Nombre del lugar</p>
-                            <p id="detail-location-name" class="text-xs font-bold text-slate-800 truncate">Lugar no especificado</p>
-                        </div>
-                    </div>
-                    <a id="detail-location-link" href="#" target="_blank" class="hidden text-xs bg-slate-900 text-white px-3 py-1.5 rounded-xl font-medium hover:bg-slate-800 whitespace-nowrap">
-                        Ver Mapa <i class="fa-solid fa-arrow-up-right-from-square ml-1 text-[10px]"></i>
-                    </a>
-                </div>
-
                 <!-- Daily Menus Timeline -->
                 <div class="space-y-3">
-                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <h4 class="text-base font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                         <i class="fa-solid fa-utensils text-amber-500"></i> Propuesta Gastronómica
                     </h4>
                     <div id="detail-days-list" class="space-y-3">
@@ -332,12 +329,25 @@
                     </div>
                 </div>
 
-                <!-- WhatsApp Confirmations -->
-                <div class="pt-3 border-t border-slate-200 space-y-2">
-                    <p class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <i class="fa-brands fa-whatsapp text-emerald-500 text-sm"></i> Confirmación de Asistencia
-                    </p>
-                    <div id="detail-whatsapp-buttons" class="space-y-2">
+                <!-- Location Link Card -->
+                <div id="detail-location-card" class="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+                        <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </div>
+                        <div class="truncate">
+                            <p class="text-[10px] font-semibold text-slate-400 uppercase">Nombre del lugar</p>
+                            <p id="detail-location-name" class="text-xs font-bold text-slate-800 truncate">Lugar no especificado</p>
+                        </div>
+                    </div>
+                    <a id="detail-location-link" href="#" target="_blank" class="hidden ml-auto shrink-0 text-sm bg-slate-900 text-white px-3.5 py-2 rounded-xl font-medium hover:bg-slate-800 whitespace-nowrap">
+                        Ver Mapa <i class="fa-solid fa-arrow-up-right-from-square ml-1 text-[10px]"></i>
+                    </a>
+                </div>
+
+                <!-- WhatsApp confirmation actions. -->
+                <div class="pt-3 border-t border-slate-200">
+                    <div id="detail-whatsapp-buttons" class="space-y-3">
                         <!-- WhatsApp confirmation buttons injected here -->
                     </div>
                 </div>
