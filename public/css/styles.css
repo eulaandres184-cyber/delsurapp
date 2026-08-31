@@ -27,3 +27,17 @@
         .text-xl { font-size: 24px !important; }
         .text-2xl { font-size: 28px !important; }
         .text-3xl { font-size: 34px !important; }
+
+        header .text-\[9px\], #modal-event-form .text-\[9px\] { font-size: 9px !important; }
+        header .text-\[10px\], #modal-event-form .text-\[10px\] { font-size: 10px !important; }
+        header .text-\[11px\], #modal-event-form .text-\[11px\] { font-size: 11px !important; }
+        header .text-\[14px\], #modal-event-form .text-\[14px\] { font-size: 14px !important; }
+        header .text-\[16px\], #modal-event-form .text-\[16px\] { font-size: 16px !important; }
+        header .text-xs, #modal-event-form .text-xs { font-size: 12px !important; }
+        header .text-sm, #modal-event-form .text-sm { font-size: 14px !important; }
+        header .text-base, #modal-event-form .text-base { font-size: 16px !important; }
+        header .text-lg, #modal-event-form .text-lg { font-size: 18px !important; }
+        header .text-xl, #modal-event-form .text-xl { font-size: 20px !important; }
+        header .text-2xl, #modal-event-form .text-2xl { font-size: 24px !important; }
+        header .text-3xl, #modal-event-form .text-3xl { font-size: 30px !important; }
+        #modal-event-form #event-form { font-size: 12px !important; }
