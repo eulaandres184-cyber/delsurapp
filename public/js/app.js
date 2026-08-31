@@ -326,6 +326,8 @@
                     // Each meal owns its checkbox so attendance can be selected independently.
                     const daysHtml = (evt.days || []).map((day, idx) => {
                         const dayDateLabel = formatEventDayLabel(day.date);
+                        const hasLunch = day.lunchEnabled ?? Boolean(day.lunch || day.lunchMenu?.src);
+                        const hasDinner = day.dinnerEnabled ?? Boolean(day.dinner || day.dinnerMenu?.src);
                         const lunchTimeLabel = day.lunchTime ? ` ${day.lunchTime}Hs` : '';
                         const dinnerTimeLabel = day.dinnerTime ? ` ${day.dinnerTime}Hs` : '';
                         const lunchPast = isMomentPast(day.date, day.lunchTime);
@@ -337,19 +339,19 @@
                                     <h5 class="text-xl font-extrabold tracking-tight break-words">${dayDateLabel}</h5>
                                 </div>
                             </div>
-                            ${day.lunch || day.lunchMenu?.src ? `
+                            ${hasLunch ? `
                                 <div class="text-sm ${lunchPast ? 'opacity-40' : ''}">
                                     <label class="flex items-center gap-3 font-extrabold text-amber-700 mb-1 ${lunchPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option h-5 w-5 shrink-0" data-day="${idx + 1}" data-meal="Almuerzo" ${lunchPast ? 'disabled' : ''}><span>☀️ Almuerzo${lunchTimeLabel}${day.lunchCost ? ` - ${formatCurrency(day.lunchCost)}` : ''}${lunchPast ? ' (finalizado)' : ''}</span></label>
                                     ${renderMenuContent(day.lunchMenu, day.lunch, 'Almuerzo', day.lunchDetail || '')}
                                 </div>
                             ` : ''}
-                            ${day.dinner || day.dinnerMenu?.src ? `
+                            ${hasDinner ? `
                                 <div class="border-t border-slate-200 pt-3 text-sm ${dinnerPast ? 'opacity-40' : ''}">
                                     <label class="flex items-center gap-3 font-extrabold text-indigo-700 mb-1 ${dinnerPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option h-5 w-5 shrink-0" data-day="${idx + 1}" data-meal="Cena" ${dinnerPast ? 'disabled' : ''}><span>🌙 Cena${dinnerTimeLabel}${day.dinnerCost ? ` - ${formatCurrency(day.dinnerCost)}` : ''}${dinnerPast ? ' (finalizado)' : ''}</span></label>
                                     ${renderMenuContent(day.dinnerMenu, day.dinner, 'Cena', day.dinnerDetail || '')}
                                 </div>
                             ` : ''}
-                            ${!day.lunch && !day.lunchMenu?.src && !day.dinner && !day.dinnerMenu?.src ? `<p class="text-sm text-slate-400 italic">Menú por definir</p>` : ''}
+                            ${!hasLunch && !hasDinner ? `<p class="text-sm text-slate-400 italic">Menú por definir</p>` : ''}
                         </div>
                     `;
                     }).join('');
@@ -358,9 +360,9 @@
                         <div class="min-w-0 bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow flex flex-col space-y-4" data-event-id="${evt.id}">
                             <div>
                                 <div class="flex items-center justify-between mb-2">
-                                    <span class="text-[10px] font-bold tracking-wider uppercase bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full border border-slate-200">
+                                    ${evt.type ? `<span class="text-[10px] font-bold tracking-wider uppercase bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full border border-slate-200">
                                         ${getEventTypeLabel(evt.type)}
-                                    </span>
+                                    </span>` : ''}
                                 </div>
 
                                 <!-- Highlighted Title Box -->
@@ -459,9 +461,9 @@
                         <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-4">
                             <div class="min-w-0 overflow-hidden">
                                 <div class="flex items-center gap-2 mb-1">
-                                    <span class="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
+                                    ${evt.type ? `<span class="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
                                         ${getEventTypeLabel(evt.type)}
-                                    </span>
+                                    </span>` : ''}
                                     ${expired ? `<span class="text-[9px] font-bold uppercase bg-rose-100 text-rose-700 px-2 py-0.5 rounded-md">Caducado</span>` : `<span class="text-[9px] font-bold uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md">Activo</span>`}
                                 </div>
                                 <h4 class="font-bold text-base text-slate-900 truncate">${evt.title}</h4>
@@ -507,8 +509,7 @@
                         title.textContent = 'Editar Evento';
                         document.getElementById('form-event-id').value = evt.id;
                         document.getElementById('form-title').value = evt.title;
-                        document.getElementById('form-type').value = evt.type || 'Corporativo';
-                        document.getElementById('form-days-count').value = (evt.days ? evt.days.length : 3).toString();
+                        document.getElementById('form-type').value = evt.type || '';
                         document.getElementById('form-location-name').value = isNumericLocationName(evt.locationName) ? '' : (evt.locationName || '');
                         document.getElementById('form-location-url').value = evt.locationUrl || '';
 
@@ -543,79 +544,94 @@
             },
 
             updateDaysBuilder: (existingDays = null) => {
-                const count = parseInt(document.getElementById('form-days-count').value, 10);
                 const container = document.getElementById('days-container');
                 container.innerHTML = '';
+                const days = existingDays?.length ? existingDays : [{}];
+                days.forEach(day => window.ui.addDayBuilder(day));
+            },
 
-                for (let i = 0; i < count; i++) {
-                    const dayData = existingDays && existingDays[i] ? existingDays[i] : { date: '', lunch: '', lunchTime: '12:00', lunchCost: '', dinner: '', dinnerTime: '21:30', dinnerCost: '' };
-                    const dayDiv = document.createElement('div');
-                    dayDiv.className = 'p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2';
-                    dayDiv.innerHTML = `
+            addDayBuilder: (dayData = {}) => {
+                const container = document.getElementById('days-container');
+                const dayId = [...container.querySelectorAll('.event-day-builder')].reduce((highest, day) => Math.max(highest, Number(day.dataset.dayId)), -1) + 1;
+                const hasLunch = dayData.lunchEnabled ?? Boolean(dayData.lunch || dayData.lunchMenu?.src);
+                const hasDinner = dayData.dinnerEnabled ?? Boolean(dayData.dinner || dayData.dinnerMenu?.src);
+                const dayDiv = document.createElement('div');
+                dayDiv.dataset.dayId = dayId;
+                dayDiv.className = 'event-day-builder p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2';
+                dayDiv.innerHTML = `
                         <div class="flex items-center justify-between">
-                            <span class="font-bold text-slate-800 text-xs">Día ${i + 1}</span>
+                            <span class="font-bold text-slate-800 text-xs">Fecha del evento</span>
                             <div class="flex items-center gap-1">
-                                <input type="date" id="day-date-${i}" aria-label="Fecha del día ${i + 1}" value="${dayData.date || ''}" class="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-slate-800">
+                                <input type="date" aria-label="Fecha del evento" value="${dayData.date || ''}" class="day-date bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-slate-800">
+                                <button type="button" onclick="window.ui.removeDayBuilder(this)" class="text-rose-500 p-1 hover:text-rose-700" aria-label="Eliminar día" title="Eliminar día"><i class="fa-solid fa-trash"></i></button>
                             </div>
                         </div>
                         <div class="grid grid-cols-1 gap-2">
                             <div>
                                 <div class="flex items-center justify-between mb-0.5">
-                                    <label class="text-[16px] font-semibold text-slate-600">☀️ Almuerzo (opcional)</label>
+                                    <label class="flex items-center gap-2 text-[16px] font-semibold text-slate-600"><input type="checkbox" class="day-lunch-enabled h-4 w-4" ${hasLunch ? 'checked' : ''} onchange="window.ui.updateMealVisibility(this)">☀️ Almuerzo</label>
                                     <div class="flex items-center gap-1">
                                         <span class="text-[14px] text-slate-500 font-medium">Hora:</span>
-                                        <input type="time" id="day-lunch-time-${i}" value="${dayData.lunchTime || '12:00'}" class="bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[14px] text-slate-800 focus:outline-none focus:border-slate-800">
-                                        <input type="text" id="day-lunch-cost-${i}" value="${dayData.lunchCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo del almuerzo" class="day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[14px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <input type="time" value="${dayData.lunchTime || '12:00'}" class="day-lunch-time bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[14px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <input type="text" value="${dayData.lunchCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo del almuerzo" class="day-lunch-cost day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[14px] text-slate-800 focus:outline-none focus:border-slate-800">
                                     </div>
                                 </div>
-                                <select id="day-lunch-menu-${i}" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800">
+                                <div class="day-lunch-details space-y-1"><select class="day-lunch-menu w-full bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800">
                                     <option value="">Seleccionar imagen o PDF del menú</option>
                                     <option value="./img/menu.png">menu.png</option>
                                     <option value="./img/menu.pdf">menu.pdf</option>
                                 </select>
-                                <input type="file" id="day-lunch-file-${i}" accept="image/*,.pdf,application/pdf" class="w-full mt-1 text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-800 file:px-2 file:py-1 file:text-[11px] file:font-semibold file:text-white">
-                                <p id="day-lunch-file-name-${i}" class="text-[10px] text-slate-500 truncate"></p>
-                                <textarea id="day-lunch-detail-${i}" rows="2" placeholder="Detalle del menú de almuerzo (opcional)" class="w-full mt-1 bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.lunchDetail || ''}</textarea>
+                                <input type="file" accept="image/*,.pdf,application/pdf" class="day-lunch-file w-full mt-1 text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-800 file:px-2 file:py-1 file:text-[11px] file:font-semibold file:text-white">
+                                <p class="day-lunch-file-name text-[10px] text-slate-500 truncate"></p><textarea rows="2" placeholder="Detalle del menú de almuerzo (opcional)" class="day-lunch-detail w-full mt-1 bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.lunchDetail || ''}</textarea></div>
                             </div>
                             <div>
                                 <div class="flex items-center justify-between mb-0.5">
-                                    <label class="text-[16px] font-semibold text-slate-600">🌙 Cena (opcional)</label>
+                                    <label class="flex items-center gap-2 text-[16px] font-semibold text-slate-600"><input type="checkbox" class="day-dinner-enabled h-4 w-4" ${hasDinner ? 'checked' : ''} onchange="window.ui.updateMealVisibility(this)">🌙 Cena</label>
                                     <div class="flex items-center gap-1">
                                         <span class="text-[14px] text-slate-500 font-medium">Hora:</span>
-                                        <input type="time" id="day-dinner-time-${i}" value="${dayData.dinnerTime || '21:30'}" class="bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
-                                        <input type="text" id="day-dinner-cost-${i}" value="${dayData.dinnerCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo de la cena" class="day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <input type="time" value="${dayData.dinnerTime || '21:30'}" class="day-dinner-time bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <input type="text" value="${dayData.dinnerCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo de la cena" class="day-dinner-cost day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
                                     </div>
                                 </div>
-                                <select id="day-dinner-menu-${i}" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800">
+                                <div class="day-dinner-details space-y-1"><select class="day-dinner-menu w-full bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800">
                                     <option value="">Seleccionar imagen o PDF del menú</option>
                                     <option value="./img/menu.png">menu.png</option>
                                     <option value="./img/menu.pdf">menu.pdf</option>
                                 </select>
-                                <input type="file" id="day-dinner-file-${i}" accept="image/*,.pdf,application/pdf" class="w-full mt-1 text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-800 file:px-2 file:py-1 file:text-[11px] file:font-semibold file:text-white">
-                                <p id="day-dinner-file-name-${i}" class="text-[10px] text-slate-500 truncate"></p>
-                                <textarea id="day-dinner-detail-${i}" rows="2" placeholder="Detalle del menú de cena (opcional)" class="w-full mt-1 bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.dinnerDetail || ''}</textarea>
+                                <input type="file" accept="image/*,.pdf,application/pdf" class="day-dinner-file w-full mt-1 text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-800 file:px-2 file:py-1 file:text-[11px] file:font-semibold file:text-white">
+                                <p class="day-dinner-file-name text-[10px] text-slate-500 truncate"></p><textarea rows="2" placeholder="Detalle del menú de cena (opcional)" class="day-dinner-detail w-full mt-1 bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.dinnerDetail || ''}</textarea></div>
                             </div>
                         </div>
                     `;
-                    container.appendChild(dayDiv);
-                    ['lunch', 'dinner'].forEach((meal) => {
-                        const menu = dayData[`${meal}Menu`];
-                        const select = dayDiv.querySelector(`#day-${meal}-menu-${i}`);
-                        const fileInput = dayDiv.querySelector(`#day-${meal}-file-${i}`);
-                        const fileName = dayDiv.querySelector(`#day-${meal}-file-name-${i}`);
-                        if (menu?.src && !menu.src.startsWith('data:')) select.value = menu.src;
-                        if (menu?.name) fileName.textContent = `Archivo actual: ${menu.name}`;
-                        fileInput.addEventListener('change', () => {
-                            fileName.textContent = fileInput.files[0]?.name || '';
-                            if (fileInput.files[0]) select.value = '';
-                        });
+                container.appendChild(dayDiv);
+                ['lunch', 'dinner'].forEach((meal) => {
+                    const menu = dayData[`${meal}Menu`];
+                    const select = dayDiv.querySelector(`.day-${meal}-menu`);
+                    const fileInput = dayDiv.querySelector(`.day-${meal}-file`);
+                    const fileName = dayDiv.querySelector(`.day-${meal}-file-name`);
+                    if (menu?.src && !menu.src.startsWith('data:')) select.value = menu.src;
+                    if (menu?.name) fileName.textContent = `Archivo actual: ${menu.name}`;
+                    fileInput.addEventListener('change', () => {
+                        fileName.textContent = fileInput.files[0]?.name || '';
+                        if (fileInput.files[0]) select.value = '';
                     });
-                    dayDiv.querySelectorAll('.day-cost-input').forEach((input) => {
-                        input.addEventListener('input', (event) => {
-                            event.target.value = event.target.value.replace(/\D/g, '');
-                        });
+                    window.ui.updateMealVisibility(dayDiv.querySelector(`.day-${meal}-enabled`));
+                });
+                dayDiv.querySelectorAll('.day-cost-input').forEach((input) => {
+                    input.addEventListener('input', (event) => {
+                        event.target.value = event.target.value.replace(/\D/g, '');
                     });
-                }
+                });
+            },
+
+            removeDayBuilder: (button) => {
+                button.closest('.event-day-builder').remove();
+                if (!document.querySelector('.event-day-builder')) window.ui.addDayBuilder();
+            },
+
+            updateMealVisibility: (checkbox) => {
+                const meal = checkbox.classList.contains('day-lunch-enabled') ? 'lunch' : 'dinner';
+                checkbox.closest('.event-day-builder').querySelector(`.day-${meal}-details`).classList.toggle('hidden', !checkbox.checked);
             },
 
             addContactRow: (name = '', phone = '') => {
@@ -822,7 +838,7 @@
                     saveButton.textContent = 'Guardando...';
                 }
                 const type = document.getElementById('form-type').value;
-                const daysCount = parseInt(document.getElementById('form-days-count').value, 10);
+                const dayRows = [...document.querySelectorAll('.event-day-builder')];
                 let locationName = document.getElementById('form-location-name').value.trim();
                 if (isNumericLocationName(locationName)) {
                     locationName = window.state.currentLocationName || 'Ubicación seleccionada';
@@ -834,11 +850,12 @@
                 try {
                     // Process all days/meals concurrently instead of one await at a time.
                     const dayPromises = [];
-                    for (let i = 0; i < daysCount; i++) {
+                    for (const [i, dayRow] of dayRows.entries()) {
                         const existingDay = existingEvent?.days?.[i] || {};
-                        const readMenu = async (meal) => {
-                            const fileInput = document.getElementById(`day-${meal}-file-${i}`);
-                            const selectedPath = document.getElementById(`day-${meal}-menu-${i}`)?.value;
+                        const readMenu = async (meal, isEnabled) => {
+                            if (!isEnabled) return null;
+                            const fileInput = dayRow.querySelector(`.day-${meal}-file`);
+                            const selectedPath = dayRow.querySelector(`.day-${meal}-menu`)?.value;
                             if (fileInput?.files?.[0]) return uploadMenuFile(fileInput.files[0], id, i, meal);
                             if (selectedPath) {
                                 return {
@@ -849,19 +866,23 @@
                             }
                             return migrateLegacyMenu(existingDay[`${meal}Menu`], id, i, meal);
                         };
+                        const lunchEnabled = dayRow.querySelector('.day-lunch-enabled').checked;
+                        const dinnerEnabled = dayRow.querySelector('.day-dinner-enabled').checked;
                         dayPromises.push(
-                            Promise.all([readMenu('lunch'), readMenu('dinner')]).then(([lunchMenu, dinnerMenu]) => ({
-                                date: document.getElementById(`day-date-${i}`)?.value || '',
-                                lunch: lunchMenu ? '' : (existingDay.lunch || ''),
+                            Promise.all([readMenu('lunch', lunchEnabled), readMenu('dinner', dinnerEnabled)]).then(([lunchMenu, dinnerMenu]) => ({
+                                date: dayRow.querySelector('.day-date')?.value || '',
+                                lunchEnabled,
+                                lunch: lunchEnabled && !lunchMenu ? (existingDay.lunch || '') : '',
                                 lunchMenu,
-                                lunchDetail: document.getElementById(`day-lunch-detail-${i}`)?.value.trim() || '',
-                                lunchTime: document.getElementById(`day-lunch-time-${i}`)?.value || '',
-                                lunchCost: document.getElementById(`day-lunch-cost-${i}`)?.value || '',
-                                dinner: dinnerMenu ? '' : (existingDay.dinner || ''),
+                                lunchDetail: lunchEnabled ? dayRow.querySelector('.day-lunch-detail')?.value.trim() || '' : '',
+                                lunchTime: lunchEnabled ? dayRow.querySelector('.day-lunch-time')?.value || '' : '',
+                                lunchCost: lunchEnabled ? dayRow.querySelector('.day-lunch-cost')?.value || '' : '',
+                                dinnerEnabled,
+                                dinner: dinnerEnabled && !dinnerMenu ? (existingDay.dinner || '') : '',
                                 dinnerMenu,
-                                dinnerDetail: document.getElementById(`day-dinner-detail-${i}`)?.value.trim() || '',
-                                dinnerTime: document.getElementById(`day-dinner-time-${i}`)?.value || '',
-                                dinnerCost: document.getElementById(`day-dinner-cost-${i}`)?.value || ''
+                                dinnerDetail: dinnerEnabled ? dayRow.querySelector('.day-dinner-detail')?.value.trim() || '' : '',
+                                dinnerTime: dinnerEnabled ? dayRow.querySelector('.day-dinner-time')?.value || '' : '',
+                                dinnerCost: dinnerEnabled ? dayRow.querySelector('.day-dinner-cost')?.value || '' : ''
                             }))
                         );
                     }

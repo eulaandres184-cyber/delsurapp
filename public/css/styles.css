@@ -15,3 +15,15 @@
             background: #cbd5e1;
             border-radius: 4px;
         }
+        .text-\[9px\] { font-size: 13px !important; }
+        .text-\[10px\] { font-size: 14px !important; }
+        .text-\[11px\] { font-size: 15px !important; }
+        .text-\[14px\] { font-size: 18px !important; }
+        .text-\[16px\] { font-size: 20px !important; }
+        .text-xs { font-size: 16px !important; }
+        .text-sm { font-size: 18px !important; }
+        .text-base { font-size: 20px !important; }
+        .text-lg { font-size: 22px !important; }
+        .text-xl { font-size: 24px !important; }
+        .text-2xl { font-size: 28px !important; }
+        .text-3xl { font-size: 34px !important; }
