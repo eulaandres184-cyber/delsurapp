@@ -94,19 +94,6 @@
             return `<img src="${menu.src}" alt="${label}" class="w-full max-h-[28rem] object-contain rounded-xl border border-slate-200 bg-white">${detailContent}`;
         }
 
-        async function geocode(request) {
-            await loadGoogleMaps();
-            try {
-                return await new google.maps.Geocoder().geocode(request);
-            } catch (error) {
-                const message = String(error?.message || error || '');
-                if (message.includes('REQUEST_DENIED') || message.includes('not allowed to use the geocoder')) {
-                    throw new Error('La clave de Google Maps no tiene habilitado Geocoding API o el dominio actual no está autorizado.');
-                }
-                throw error;
-            }
-        }
-
         // APP STATE
         window.state = {
             events: [],
@@ -336,8 +323,35 @@
                     const locationName = getEventLocationName(evt);
 
                     // Each meal owns its checkbox so attendance can be selected independently.
+                    const daysHtml = (evt.days || []).map((day, idx) => {
+                        const lunchTimeLabel = day.lunchTime ? ` ${day.lunchTime}Hs` : '';
+                        const dinnerTimeLabel = day.dinnerTime ? ` ${day.dinnerTime}Hs` : '';
+                        const lunchPast = isMomentPast(day.date, day.lunchTime);
+                        const dinnerPast = isMomentPast(day.date, day.dinnerTime);
+                        return `
+                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                            <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+                                <span class="font-bold text-sm text-slate-800">Día ${idx + 1}</span>
+                            </div>
+                            ${day.lunch || day.lunchMenu?.src ? `
+                                <div class="text-sm ${lunchPast ? 'opacity-40' : ''}">
+                                    <label class="flex items-center gap-3 font-extrabold text-amber-700 mb-1 ${lunchPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option h-5 w-5 shrink-0" data-day="${idx + 1}" data-meal="Almuerzo" ${lunchPast ? 'disabled' : ''}><span>☀️ Almuerzo${lunchTimeLabel}${day.lunchCost ? ` - ${formatCurrency(day.lunchCost)}` : ''}${lunchPast ? ' (finalizado)' : ''}</span></label>
+                                    ${renderMenuContent(day.lunchMenu, day.lunch, 'Almuerzo', day.lunchDetail || '')}
+                                </div>
+                            ` : ''}
+                            ${day.dinner || day.dinnerMenu?.src ? `
+                                <div class="border-t border-slate-200 pt-3 text-sm ${dinnerPast ? 'opacity-40' : ''}">
+                                    <label class="flex items-center gap-3 font-extrabold text-indigo-700 mb-1 ${dinnerPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option h-5 w-5 shrink-0" data-day="${idx + 1}" data-meal="Cena" ${dinnerPast ? 'disabled' : ''}><span>🌙 Cena${dinnerTimeLabel}${day.dinnerCost ? ` - ${formatCurrency(day.dinnerCost)}` : ''}${dinnerPast ? ' (finalizado)' : ''}</span></label>
+                                    ${renderMenuContent(day.dinnerMenu, day.dinner, 'Cena', day.dinnerDetail || '')}
+                                </div>
+                            ` : ''}
+                            ${!day.lunch && !day.lunchMenu?.src && !day.dinner && !day.dinnerMenu?.src ? `<p class="text-sm text-slate-400 italic">Menú por definir</p>` : ''}
+                        </div>
+                    `;
+                    }).join('');
+
                     return `
-                        <div class="min-w-0 bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow flex flex-col justify-between space-y-4">
+                        <div class="min-w-0 bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow flex flex-col space-y-4" data-event-id="${evt.id}">
                             <div>
                                 <div class="flex items-center justify-between mb-2">
                                     <span class="text-[10px] font-bold tracking-wider uppercase bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full border border-slate-200">
@@ -350,7 +364,7 @@
                                     <h3 class="text-xl font-extrabold tracking-tight break-words">${evt.title}</h3>
                                 </div>
 
-                                <div class="space-y-1.5 text-xs text-slate-600">
+                                <div class="space-y-1.5 text-sm text-slate-600">
                                     <div class="flex items-center gap-2">
                                         <i class="fa-regular fa-calendar text-slate-500 w-4 text-center"></i>
                                         <span class="font-medium text-slate-700">${dateText}</span>
@@ -358,17 +372,61 @@
                                     <div class="flex items-center gap-2">
                                         <i class="fa-solid fa-location-dot text-rose-500 w-4 text-center"></i>
                                         <span class="font-medium text-slate-700 truncate">${locationName}</span>
+                                        ${evt.locationUrl ? `<a href="#" class="location-map-link ml-auto shrink-0 text-xs font-semibold text-slate-900 underline" data-url="${evt.locationUrl}">Ver Mapa</a>` : ''}
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Soft Green Menu Button -->
-                            <button onclick="window.ui.openDetailsModal('${evt.id}')" class="w-full bg-emerald-100 text-emerald-900 hover:bg-emerald-200 active:bg-emerald-300 font-bold text-xs py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-emerald-300/60 shadow-sm mt-2">
-                                <i class="fa-solid fa-book-open text-emerald-700"></i> Ver Menú
-                            </button>
+                            <!-- Menu content, previously behind "Ver Menú", now shown directly on the card -->
+                            <div class="space-y-3">
+                                <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="fa-solid fa-utensils text-amber-500"></i> Propuesta Gastronómica
+                                </h4>
+                                <div class="event-days-list space-y-3">${daysHtml}</div>
+                            </div>
+
+                            <div class="event-whatsapp-buttons space-y-3 pt-3 border-t border-slate-200"></div>
                         </div>
                     `;
                 }).join('');
+
+                // Wire the WhatsApp confirmation buttons per card, scoped to that event's checkboxes only.
+                activeEvents.forEach(evt => {
+                    const card = grid.querySelector(`[data-event-id="${evt.id}"]`);
+                    if (!card) return;
+                    const contacts = evt.contacts && evt.contacts.length ? evt.contacts : [{ name: 'Administración', phone: adminWhatsAppPhone }];
+                    const waContainer = card.querySelector('.event-whatsapp-buttons');
+
+                    const mapLink = card.querySelector('.location-map-link');
+                    if (mapLink) {
+                        mapLink.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            openMapUrl(mapLink.dataset.url);
+                        });
+                    }
+
+                    const renderWhatsAppButtons = () => {
+                        const selectedOptions = [...card.querySelectorAll('.confirmation-option:checked')]
+                            .map(option => `Día ${option.dataset.day} - ${option.dataset.meal}`);
+                        const attendance = selectedOptions.length ? selectedOptions.join(', ') : 'todos los momentos del evento';
+                        waContainer.innerHTML = contacts.map(c => {
+                            const cleanPhone = (c.phone || '').replace(/\D/g, '');
+                            const message = encodeURIComponent(`Hola ${c.name || 'organizador'}, quiero confirmar mi asistencia al evento "${evt.title}" para: ${attendance}.`);
+                            const waUrl = `https://wa.me/${cleanPhone}?text=${message}`;
+
+                            return `
+                                <a href="${waUrl}" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
+                                    <i class="fa-brands fa-whatsapp text-sm"></i> Confirmar con ${c.name || 'Contacto'}
+                                </a>
+                            `;
+                        }).join('');
+                    };
+
+                    card.querySelectorAll('.confirmation-option').forEach(option => {
+                        option.addEventListener('change', renderWhatsAppButtons);
+                    });
+                    renderWhatsAppButtons();
+                });
             },
 
             renderAdminList: () => {
@@ -433,6 +491,14 @@
             openEventModal: (eventId = null) => {
                 window.state.editingEventId = eventId;
                 window.state.currentLocationName = '';
+                window.state.currentMapCoords = null;
+                // Clear any marker left over from a previous event so it doesn't leak into this session.
+                if (window.state.mapMarker) {
+                    window.state.mapMarker.setMap(null);
+                    window.state.mapMarker = null;
+                }
+                const mapLabel = document.getElementById('map-selected-label');
+                if (mapLabel) mapLabel.textContent = 'Haga clic en el mapa para marcar';
                 const modal = document.getElementById('modal-event-form');
                 const title = document.getElementById('event-form-title');
                 const form = document.getElementById('event-form');
@@ -453,6 +519,12 @@
                         document.getElementById('form-days-count').value = (evt.days ? evt.days.length : 3).toString();
                         document.getElementById('form-location-name').value = isNumericLocationName(evt.locationName) ? '' : (evt.locationName || '');
                         document.getElementById('form-location-url').value = evt.locationUrl || '';
+
+                        const existingCoords = getMapCoordinates(evt.locationUrl);
+                        if (existingCoords) {
+                            window.state.currentMapCoords = existingCoords;
+                            window.state.currentLocationName = isNumericLocationName(evt.locationName) ? '' : (evt.locationName || '');
+                        }
                         
                         if (evt.locationName || evt.locationUrl) {
                             document.getElementById('location-status-text').textContent = `Ubicación cargada: ${evt.locationName || 'Ver Mapa'}`;
@@ -586,6 +658,14 @@
                             window.app.setMapMarker(event.latLng.lat(), event.latLng.lng());
                         });
                     }
+                    // Restore the marker for the event being edited instead of leaving it at the default center.
+                    if (window.state.currentMapCoords && !window.state.mapMarker) {
+                        window.app.setMapMarker(window.state.currentMapCoords.lat, window.state.currentMapCoords.lng, window.state.currentLocationName);
+                        window.state.mapInstance.setZoom(16);
+                    } else if (!window.state.currentMapCoords) {
+                        window.state.mapInstance.setCenter({ lat: -34.6037, lng: -58.3816 });
+                        window.state.mapInstance.setZoom(12);
+                    }
                 }).catch((error) => {
                     document.getElementById('map-selected-label').textContent = error.message;
                 });
@@ -593,91 +673,6 @@
 
             closeMapModal: () => {
                 document.getElementById('modal-map').classList.add('hidden');
-            },
-
-            openDetailsModal: (eventId) => {
-                const evt = window.state.events.find(e => e.id === eventId);
-                if (!evt) return;
-
-                document.getElementById('detail-type-badge').textContent = getEventTypeLabel(evt.type);
-                document.getElementById('detail-title').textContent = evt.title;
-
-                const locName = document.getElementById('detail-location-name');
-                const locLink = document.getElementById('detail-location-link');
-                locName.textContent = getEventLocationName(evt);
-
-                if (evt.locationUrl) {
-                    locLink.href = evt.locationUrl;
-                    locLink.onclick = (event) => {
-                        event.preventDefault();
-                        openMapUrl(evt.locationUrl);
-                    };
-                    locLink.classList.remove('hidden');
-                } else {
-                    locLink.onclick = null;
-                    locLink.classList.add('hidden');
-                }
-
-                // Render Days Menus
-                const daysContainer = document.getElementById('detail-days-list');
-                daysContainer.innerHTML = (evt.days || []).map((day, idx) => {
-                    const lunchTimeLabel = day.lunchTime ? ` ${day.lunchTime}Hs` : '';
-                    const dinnerTimeLabel = day.dinnerTime ? ` ${day.dinnerTime}Hs` : '';
-                    const lunchPast = isMomentPast(day.date, day.lunchTime);
-                    const dinnerPast = isMomentPast(day.date, day.dinnerTime);
-                    return `
-                    <div class="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
-                        <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
-                            <span class="font-bold text-base text-slate-800">Día ${idx + 1}</span>
-                        </div>
-                        ${day.lunch || day.lunchMenu?.src ? `
-                            <div class="text-sm ${lunchPast ? 'opacity-40' : ''}">
-                                <label class="flex items-center gap-3 font-extrabold text-amber-700 mb-1 ${lunchPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option h-5 w-5 shrink-0" data-day="${idx + 1}" data-meal="Almuerzo" ${lunchPast ? 'disabled' : ''}><span>☀️ Almuerzo${lunchTimeLabel}${day.lunchCost ? ` - ${formatCurrency(day.lunchCost)}` : ''}${lunchPast ? ' (finalizado)' : ''}</span></label>
-                                ${renderMenuContent(day.lunchMenu, day.lunch, 'Almuerzo', day.lunchDetail || '')}
-                            </div>
-                        ` : ''}
-                        ${day.dinner || day.dinnerMenu?.src ? `
-                            <div class="border-t border-slate-200 pt-3 text-sm ${dinnerPast ? 'opacity-40' : ''}">
-                                <label class="flex items-center gap-3 font-extrabold text-indigo-700 mb-1 ${dinnerPast ? 'line-through cursor-not-allowed' : ''}"><input type="checkbox" class="confirmation-option h-5 w-5 shrink-0" data-day="${idx + 1}" data-meal="Cena" ${dinnerPast ? 'disabled' : ''}><span>🌙 Cena${dinnerTimeLabel}${day.dinnerCost ? ` - ${formatCurrency(day.dinnerCost)}` : ''}${dinnerPast ? ' (finalizado)' : ''}</span></label>
-                                ${renderMenuContent(day.dinnerMenu, day.dinner, 'Cena', day.dinnerDetail || '')}
-                            </div>
-                        ` : ''}
-                        ${!day.lunch && !day.lunchMenu?.src && !day.dinner && !day.dinnerMenu?.src ? `<p class="text-[11px] text-slate-400 italic">Menú por definir</p>` : ''}
-                    </div>
-                `}).join('');
-
-                // Render WhatsApp Confirmation Buttons
-                const waContainer = document.getElementById('detail-whatsapp-buttons');
-                    const contacts = evt.contacts && evt.contacts.length ? evt.contacts : [{ name: 'Administración', phone: adminWhatsAppPhone }];
-
-                // Rebuild the WhatsApp links whenever a meal selection changes.
-                const renderWhatsAppButtons = () => {
-                    const selectedOptions = [...document.querySelectorAll('.confirmation-option:checked')]
-                        .map(option => `Día ${option.dataset.day} - ${option.dataset.meal}`);
-                    const attendance = selectedOptions.length ? selectedOptions.join(', ') : 'todos los momentos del evento';
-                    waContainer.innerHTML = contacts.map(c => {
-                    const cleanPhone = (c.phone || '').replace(/\D/g, '');
-                    const message = encodeURIComponent(`Hola ${c.name || 'organizador'}, quiero confirmar mi asistencia al evento "${evt.title}" para: ${attendance}.`);
-                    const waUrl = `https://wa.me/${cleanPhone}?text=${message}`;
-
-                    return `
-                        <a href="${waUrl}" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
-                            <i class="fa-brands fa-whatsapp text-sm"></i> Confirmar con ${c.name || 'Contacto'}
-                        </a>
-                    `;
-                    }).join('');
-                };
-
-                document.querySelectorAll('.confirmation-option').forEach(option => {
-                    option.addEventListener('change', renderWhatsAppButtons);
-                });
-                renderWhatsAppButtons();
-
-                document.getElementById('modal-event-details').classList.remove('hidden');
-            },
-
-            closeDetailsModal: () => {
-                document.getElementById('modal-event-details').classList.add('hidden');
             },
 
             closeAdminAuthModal: () => {
@@ -925,7 +920,11 @@
 
                 try {
                     if (eventsCollection) {
-                        await setDoc(doc(eventsCollection, id), newEvent);
+                        // Rules require an authenticated user; wait for anonymous sign-in to finish first.
+                        await authReadyPromise;
+                        // Firestore rejects `undefined` fields (e.g. days without an uploaded menu yet).
+                        const firestoreEvent = JSON.parse(JSON.stringify(newEvent));
+                        await setDoc(doc(eventsCollection, id), firestoreEvent);
                     }
                 } catch (e) {
                     console.warn('Firestore write warning:', e);
@@ -940,7 +939,10 @@
                 localStorage.setItem('catering_events_v2', JSON.stringify(window.state.events));
 
                 try {
-                    if (eventsCollection) await deleteDoc(doc(eventsCollection, id));
+                    if (eventsCollection) {
+                        await authReadyPromise;
+                        await deleteDoc(doc(eventsCollection, id));
+                    }
                 } catch (e) {}
 
                 window.ui.renderAdminList();
