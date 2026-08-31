@@ -5,6 +5,7 @@
         import { firebaseConfig, firebaseCollectionPath } from './firebase-config.js';
         import {
             formatCurrency,
+            formatEventDayLabel,
             formatEventDateLabel,
             getAppleMapsUrl,
             getGoogleMapsUrl,
@@ -324,6 +325,7 @@
 
                     // Each meal owns its checkbox so attendance can be selected independently.
                     const daysHtml = (evt.days || []).map((day, idx) => {
+                        const dayDateLabel = formatEventDayLabel(day.date);
                         const lunchTimeLabel = day.lunchTime ? ` ${day.lunchTime}Hs` : '';
                         const dinnerTimeLabel = day.dinnerTime ? ` ${day.dinnerTime}Hs` : '';
                         const lunchPast = isMomentPast(day.date, day.lunchTime);
@@ -331,7 +333,9 @@
                         return `
                         <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                             <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-                                <span class="font-bold text-sm text-slate-800">Día ${idx + 1}</span>
+                                <div class="w-full bg-white text-slate-800 p-3 rounded-xl shadow-inner border border-slate-200 text-center">
+                                    <h5 class="text-xl font-extrabold tracking-tight break-words">${dayDateLabel}</h5>
+                                </div>
                             </div>
                             ${day.lunch || day.lunchMenu?.src ? `
                                 <div class="text-sm ${lunchPast ? 'opacity-40' : ''}">
@@ -362,18 +366,6 @@
                                 <!-- Highlighted Title Box -->
                                 <div class="bg-slate-800 text-white p-3 rounded-xl shadow-inner border border-slate-700 mb-3 text-center">
                                     <h3 class="text-xl font-extrabold tracking-tight break-words">${evt.title}</h3>
-                                </div>
-
-                                <div class="space-y-1.5 text-sm text-slate-600">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fa-regular fa-calendar text-slate-500 w-4 text-center"></i>
-                                        <span class="font-medium text-slate-700">${dateText}</span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <i class="fa-solid fa-location-dot text-rose-500 w-4 text-center"></i>
-                                        <span class="font-medium text-slate-700 truncate">${locationName}</span>
-                                        ${evt.locationUrl ? `<a href="#" class="location-map-link ml-auto shrink-0 text-xs font-semibold text-slate-900 underline" data-url="${evt.locationUrl}">Ver Mapa</a>` : ''}
-                                    </div>
                                 </div>
                             </div>
 

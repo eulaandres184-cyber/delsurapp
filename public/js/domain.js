@@ -33,6 +33,19 @@ export function formatEventDateLabel(days) {
         : `${first.day} ${MONTHS[first.month]} al ${last.day} ${MONTHS[last.month]} ${last.year}`;
 }
 
+export function formatEventDayLabel(date) {
+    if (!date) return 'Fecha a confirmar';
+    const parsedDate = new Date(`${date}T00:00:00`);
+    if (Number.isNaN(parsedDate.getTime())) return 'Fecha a confirmar';
+
+    const label = new Intl.DateTimeFormat('es-AR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long'
+    }).format(parsedDate);
+    return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function isEventExpired(event, now = new Date()) {
     const dates = (event?.days || []).map(day => day.date).filter(Boolean).sort();
     if (!dates.length) return false;
