@@ -669,15 +669,15 @@
                                 </select>
                                 <input type="file" accept="image/*,.pdf,application/pdf" multiple class="day-lunch-file w-full mt-1 text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-800 file:px-2 file:py-1 file:text-[11px] file:font-semibold file:text-white">
                                 <p class="text-[10px] text-slate-500">Puede seleccionar varias imágenes (Entrada, Plato principal, Postre, etc.)</p>
-                                <textarea rows="2" placeholder="Detalle del menú de almuerzo (opcional)" class="day-lunch-detail w-full mt-1 bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.lunchDetail || ''}</textarea></div>
+                                <textarea rows="2" placeholder="Detalle del menú de almuerzo (opcional)" class="day-lunch-detail auto-grow-textarea w-full mt-1 bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none overflow-hidden">${dayData.lunchDetail || ''}</textarea></div>
                             </div>
                             <div>
                                 <div class="flex items-center justify-between mb-0.5">
                                     <label class="flex items-center gap-2 text-[16px] font-semibold text-slate-600"><input type="checkbox" class="day-dinner-enabled h-4 w-4" ${hasDinner ? 'checked' : ''} onchange="window.ui.updateMealVisibility(this)">🌙 Cena</label>
                                     <div class="flex items-center gap-1">
                                         <span class="text-[14px] text-slate-500 font-medium">Hora:</span>
-                                        <input type="time" value="${dayData.dinnerTime || '21:30'}" class="day-dinner-time bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
-                                        <input type="text" value="${dayData.dinnerCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo de la cena" class="day-dinner-cost day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[11px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <input type="time" value="${dayData.dinnerTime || '21:30'}" class="day-dinner-time bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[14px] text-slate-800 focus:outline-none focus:border-slate-800">
+                                        <input type="text" value="${dayData.dinnerCost || ''}" inputmode="numeric" pattern="[0-9]*" placeholder="Costo" aria-label="Costo de la cena" class="day-dinner-cost day-cost-input w-20 bg-white border border-slate-300 rounded-md px-1 py-0.5 text-[14px] text-slate-800 focus:outline-none focus:border-slate-800">
                                     </div>
                                 </div>
                                 <div class="day-dinner-details space-y-1">
@@ -689,7 +689,7 @@
                                 </select>
                                 <input type="file" accept="image/*,.pdf,application/pdf" multiple class="day-dinner-file w-full mt-1 text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-800 file:px-2 file:py-1 file:text-[11px] file:font-semibold file:text-white">
                                 <p class="text-[10px] text-slate-500">Puede seleccionar varias imágenes (Entrada, Plato principal, Postre, etc.)</p>
-                                <textarea rows="2" placeholder="Detalle del menú de cena (opcional)" class="day-dinner-detail w-full mt-1 bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none">${dayData.dinnerDetail || ''}</textarea></div>
+                                <textarea rows="2" placeholder="Detalle del menú de cena (opcional)" class="day-dinner-detail auto-grow-textarea w-full mt-1 bg-white border border-slate-300 rounded-xl p-2 text-xs focus:outline-none focus:border-slate-800 resize-none overflow-hidden">${dayData.dinnerDetail || ''}</textarea></div>
                             </div>
                         </div>
                     `;
@@ -743,6 +743,14 @@
                     input.addEventListener('input', (event) => {
                         event.target.value = event.target.value.replace(/\D/g, '');
                     });
+                });
+                dayDiv.querySelectorAll('.auto-grow-textarea').forEach((textarea) => {
+                    const resize = () => {
+                        textarea.style.height = 'auto';
+                        textarea.style.height = `${textarea.scrollHeight}px`;
+                    };
+                    textarea.addEventListener('input', resize);
+                    resize();
                 });
             },
 
