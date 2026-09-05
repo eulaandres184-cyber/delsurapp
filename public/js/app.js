@@ -621,6 +621,11 @@
                 }
 
                 modal.classList.remove('hidden');
+                // scrollHeight is 0 while the modal is hidden, so resize only after it becomes visible.
+                modal.querySelectorAll('.auto-grow-textarea').forEach((textarea) => {
+                    textarea.style.height = 'auto';
+                    textarea.style.height = `${textarea.scrollHeight}px`;
+                });
             },
 
             closeEventModal: () => {
