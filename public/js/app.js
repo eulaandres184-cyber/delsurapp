@@ -23,7 +23,7 @@
         let authReadyPromise = null;
         let googleMapsPromise = null;
         // Centralized contact used by the floating button and event fallback.
-        const adminWhatsAppPhone = '549';
+        const adminWhatsAppPhone = '5492302603432';
 
         function loadGoogleMaps() {
             if (window.google?.maps) return Promise.resolve(window.google.maps);
