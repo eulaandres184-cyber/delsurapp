@@ -1,7 +1,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
         import { firebaseConfig, firebaseCollectionPath } from './firebase-config.js';
         import {
@@ -21,8 +20,6 @@
 
         let eventsCollection = null;
         let storage = null;
-        let auth = null;
-        let functions = null;
         let authReadyPromise = null;
         let googleMapsPromise = null;
         // Centralized contact used by the floating button and event fallback.
@@ -179,6 +176,7 @@
             events: [],
             activeTab: 'events',
             isAdmin: false,
+            adminPIN: '2026',
             headerTapCount: 0,
             headerTapTimer: null,
             adminSearch: '',
@@ -889,9 +887,8 @@
                 try {
                     if (firebaseConfig.apiKey && firebaseConfig.appId) {
                         const firebaseApp = initializeApp(firebaseConfig);
-                        auth = getAuth(firebaseApp);
+                        const auth = getAuth(firebaseApp);
                         const db = getFirestore(firebaseApp);
-                        functions = getFunctions(firebaseApp);
                         storage = getStorage(firebaseApp);
                         eventsCollection = collection(db, ...firebaseCollectionPath);
                         onSnapshot(eventsCollection, (snapshot) => {
@@ -945,26 +942,18 @@
 
             verifyAdminPin: () => {
                 const input = document.getElementById('admin-pin-input').value;
-                const loginButton = document.querySelector('#modal-admin-auth button[onclick*="verifyAdminPin"]');
-                if (loginButton) loginButton.disabled = true;
-
-                httpsCallable(functions, 'adminLogin')({ pin: input })
-                    .then(async ({ data }) => {
-                        await signInWithCustomToken(auth, data.token);
-                        window.state.isAdmin = true;
-                        document.getElementById('modal-admin-auth').classList.add('hidden');
-                        document.getElementById('admin-logout-btn').classList.remove('hidden');
-                        window.ui.showTab('admin');
-                    })
-                    .catch(() => window.ui.showAlert('Error', 'PIN de administrador incorrecto.'))
-                    .finally(() => {
-                        if (loginButton) loginButton.disabled = false;
-                    });
+                if (input === window.state.adminPIN) {
+                    window.state.isAdmin = true;
+                    document.getElementById('modal-admin-auth').classList.add('hidden');
+                    document.getElementById('admin-logout-btn').classList.remove('hidden');
+                    window.ui.showTab('admin');
+                } else {
+                    window.ui.showAlert('Error', 'PIN de administrador incorrecto.');
+                }
             },
 
-            logoutAdmin: async () => {
+            logoutAdmin: () => {
                 window.state.isAdmin = false;
-                if (auth) await signOut(auth);
                 document.getElementById('admin-logout-btn').classList.add('hidden');
                 window.ui.showTab('events');
             },
